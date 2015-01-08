@@ -13,3 +13,4 @@ o Leonidas:
  - build PSF using pyphot pkfit routines
  - pygfit crowded-field PSF fitting setup for project, using pyphot object detection
  - convert pyphot's PSF description into galfit-format PSF for pygfit use
+
