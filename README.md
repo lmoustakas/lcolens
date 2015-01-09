@@ -7,10 +7,7 @@ Order of things on AAS hack day, 1/8/15
 - Leonidas: 
  - reading in the sequence of lcogt images and header information
  - import stellar catalog
-  - Nb astropy affiliated package astroquery, for tapping into Vizier catalog
-  - HIPPARCOS for astrometry
-  - SDSS for photometry
-  - NOMAD via Vizier, http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=I/297
+  - result = Vizier.query_region("3C 273", radius=Angle(0.1, "deg"), catalog='NOMAD1')
  - WCS match of stellar catalog to positions in lcogt image
  - build PSF using pyphot pkfit routines
  - pygfit crowded-field PSF fitting setup for project, using pyphot object detection
