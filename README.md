@@ -9,6 +9,7 @@ Order of things on AAS hack day, 1/8/15
  - import stellar catalog
   - HIPPARCOS for astrometry
   - SDSS for photometry
+  - NOMAD via Vizier, http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=I/297
  - WCS match of stellar catalog to positions in lcogt image
  - build PSF using pyphot pkfit routines
  - pygfit crowded-field PSF fitting setup for project, using pyphot object detection
