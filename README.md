@@ -7,6 +7,7 @@ Order of things on AAS hack day, 1/8/15
 - Leonidas: 
  - reading in the sequence of lcogt images and header information
  - import stellar catalog
+  - Nb astropy affiliated package astroquery, for tapping into Vizier catalog
   - HIPPARCOS for astrometry
   - SDSS for photometry
   - NOMAD via Vizier, http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=I/297
