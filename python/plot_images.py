@@ -11,7 +11,11 @@ ra = (4.+38./60.+14.9/60./60.)/24*360
 dec = -12. - (17./60 +14.4/60./60.)
 print 'ra',ra,'dec',dec
 plt.rcParams['figure.figsize']=(10,8)
-hdulist=fits.open('../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90.fits')
+#fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90.fits'
+#fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0124-e90.fits'
+fits_file_name = '../data/HE0435_LCOGT/lsc1m009-fl03-20141201-0115-e90.fits'
+
+hdulist=fits.open(fits_file_name)
 hdulist.info()
 bigw=WCS(hdulist[0].header)
 image_data = hdulist[0].data
@@ -42,7 +46,7 @@ plt.xlim(2011-100,2011+100)
 plt.ylim(2048+100,2048-100)
 
 #plt.figure()
-gc = aplpy.FITSFigure("../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90.fits")
+gc = aplpy.FITSFigure(fits_file_name)
 gc.show_grayscale(vmin=np.percentile(image_data,5),vmax=np.percentile(image_data,98.5))
 plt.show()
 
