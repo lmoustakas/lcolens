@@ -13,7 +13,9 @@ print 'ra',ra,'dec',dec
 plt.rcParams['figure.figsize']=(10,8)
 #fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90.fits'
 #fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0124-e90.fits'
-fits_file_name = '../data/HE0435_LCOGT/lsc1m009-fl03-20141201-0115-e90.fits'
+#fits_file_name = '../data/HE0435_LCOGT/lsc1m009-fl03-20141201-0115-e90.fits'
+
+fits_file_name = '../data/HE0435_LCOGT/new-image.fits'
 
 hdulist=fits.open(fits_file_name)
 hdulist.info()
