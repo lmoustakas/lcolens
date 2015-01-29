@@ -14,8 +14,11 @@ plt.rcParams['figure.figsize']=(10,8)
 #fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90.fits'
 #fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0124-e90.fits'
 #fits_file_name = '../data/HE0435_LCOGT/lsc1m009-fl03-20141201-0115-e90.fits'
+#fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90.fits'
+fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90_wcs_corrected.fits'
+#fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0124-e90_wcs_corrected.fits'
 
-fits_file_name = '../data/HE0435_LCOGT/new-image.fits'
+#fits_file_name = '../data/HE0435_LCOGT/lsc1m009-fl03-20141201-0115-e90_wcs_corrected.fits'
 
 hdulist=fits.open(fits_file_name)
 hdulist.info()
@@ -50,17 +53,10 @@ plt.ylim(2048+100,2048-100)
 #plt.figure()
 gc = aplpy.FITSFigure(fits_file_name)
 gc.show_grayscale(vmin=np.percentile(image_data,5),vmax=np.percentile(image_data,98.5))
-plt.show()
 
-plt.colorbar()
-#plt.subplot(223)
-plt.imshow((image_data), cmap='gray', vmin=0.,vmax=8000.)
-#plt.subplot(224)
-plt.imshow((image_data), cmap='gray', vmin=0.,vmax=16000.)
-#plt.xlim(1900.,2000.)
-#plt.ylim(1900.,2000.)
-plt.colorbar()
-#plt.show()
-
+#plt.figure()
+gc2 = aplpy.FITSFigure(fits_file_name)
+gc2.recenter(ra, dec, radius=0.003) 
+gc2.show_grayscale(vmin=np.percentile(image_data,5),vmax=np.percentile(image_data,98.5))
 plt.show()
 
