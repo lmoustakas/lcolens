@@ -1,0 +1,46 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (1/26-2/1)
+DATE: FEBRUARY 2, 2015
+CC: ANDREW ROMERO-WOLF
+
+Here is a summary of my activities for the past week. Please see the Challenges/Questions section at the bottom.
+
+1. More Git
+  * Watched "Git for Ages 4 and Up" (a 1hr 40min lecture by Michael Schwern)
+    - https://www.youtube.com/watch?v=1ffBJ4sVUb4
+  * Set up fake 'remote' and 'local' repositories on my own machine to practice branching, merging, pulling, pushing, etc.
+  * Cloned the lcolens repository
+  
+2. SAOImage DS9. I've installed this and used it to view some fits images and headers from the repository /data folder.
+
+3. GalSim
+  * Installed GalSim (lots of dependencies! not an easy installation!)
+  * Used IPython Notebook to begin exploring the GalSim demo scripts
+  * Please see my IPython Notebook in the repository /python directory
+
+4. Reading about IPython Notebook
+  * http://ipython.org/documentation.html
+  * http://nbviewer.ipython.org/github/ipython/ipython/blob/2.x/examples/Index.ipynb
+  * http://ipython.org/ipython-doc/stable/notebook/notebook.html
+
+5. Python Reading
+  * "The Python Tutorial"
+    - https://docs.python.org/2/tutorial/
+
+6. Articles
+  * Moffat 1969 "A Theoretical Investigation of Focal Stellar Images ..."
+  * Hogg & Lang 2012 "Replacing standard galaxy profiles with mixtures of Gaussians"
+  * Rowe et al 2014 "GalSim: The modular galaxy image simulation toolkit"
+
+7. Other reading
+  * FITS Wikipedia article
+  	- http://en.wikipedia.org/wiki/FITS
+  * "A Primer on the FITS Data Format"
+  	- http://fits.gsfc.nasa.gov/fits_primer.html
+
+Challenges/Questions:
+
+1. I've looked at the three wcs_corrected.fits images in the /data folder, and I do not know which object is HE0435-1223. The fk5 coordinates that I found here: http://simbad.u-strasbg.fr/simbad/sim-id?Ident=HE%200435-1223 correspond to nothing in the images. So I don't know the shape of the image that we are trying to profile.
+
+2. Before I try out a Sersic galaxy profile and a Moffat PSF profile in GalSim, I need to research the parameters for the GalSim functions: For example, for the Moffat profile I need a slope parameter beta, and one of the following size parameters: scale_radius, fwhm, or half_light_radius. I don't know reasonable values for these parameters. I will look for them.
