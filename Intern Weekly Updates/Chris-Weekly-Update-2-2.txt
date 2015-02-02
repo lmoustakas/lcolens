@@ -1,0 +1,9 @@
+TO:	LEONIDAS MOUSTAKAS
+FROM:	CHRISTOPHER GONZALEZ
+SUBJECT:	WEEK 2 - WEEKLY UPDATE
+DATE:	February 2, 2015
+CC:	ANDREW ROMERO-WOLF
+	
+This past week I started working with various programs and analyzed the code Andrew had posted to get images to display. I also installed SAOImage DS9 to look at the header information for our FITS file images so I could call them using python.
+The integration times are worth analyzing to make sure no anomalies are present for over/under exposure times. I began using UTSTART and UTSTOP to calculate RMS integration times. I have not analyzed all of the data files from nisus yet, but the first three FITS files had a deviation less than .1s.
+I was originally working with python 3.4 and am in the process of converting my system back to 2.7. There are a few dependency issues that are still cropping up that prevent me from running scripts. I should have this resolved soon and will then begin working with the files stored on nisus.
