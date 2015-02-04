@@ -46,6 +46,8 @@ def step(ext, dirname, names):
             location.append(tel_id)            
             start_time = float(start[0])*36000 + float(start[1])*3600 + float(start[3])*600 + float(start[4])*60 + float(start[6])*10 + float(start[7]) + float(start[9])*.1 + float(start[10])*.01 + float(start[11])*.001
             stop_time = float(stop[0])*36000 + float(stop[1])*3600 + float(stop[3])*600 + float(stop[4])*60 + float(stop[6])*10 + float(stop[7]) + float(stop[9])*.1 + float(stop[10])*.01 + float(stop[11])*.001
+            if start[0] == 2 and stop[0] == 0:
+                stop_time += 86400
             int_time = stop_time - start_time
             delta_time = abs(int_time - 900)
             all_int_time.append(delta_time)
@@ -65,3 +67,5 @@ os.path.walk('../', step, 'fits')
 
 print all_int_time
 print location
+
+
