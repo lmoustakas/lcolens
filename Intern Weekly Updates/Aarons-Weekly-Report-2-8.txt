@@ -1,0 +1,35 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (2/2-2/8)
+DATE: FEBRUARY 9, 2015
+CC: ANDREW ROMERO-WOLF
+
+Here is a summary of my activities for the past week.
+
+1. GalSim
+  * I have updated GalSim_Demo1.ipynb in the repo /python directory with my latest explorations.
+  * I plotted various Moffat PSF profiles, but they do not look very different from the Gaussians.
+  * When I try to plot various Sersic galaxy profiles, I get only noise.
+
+2. emcee
+  * I am looking for emcee tutorials ...
+  * These astrobites summaries are helpful:
+  	- http://astrobites.com/2011/11/26/your-gateway-to-the-bayesian-realm/
+  	- http://astrobites.com/2011/07/26/astrostatistics-how-to-fit-a-model-to-data/
+  	- http://astrobites.com/2012/02/20/code-you-can-use-the-mcmc-hammer/
+  * There are some emcee examples here:
+  	- http://pyspeckit.bitbucket.org/html/sphinx/example_pymc.html
+  	- http://users.obs.carnegiescience.edu/cburns/ipynbs/Emcee.html
+  	- http://dan.iel.fm/emcee/current/user/quickstart/
+  * I am working through the following articles:
+    - "emcee: The MCMC Hammer", Foreman-Mackey et al. 2013
+    - "An Introduction to MCMC for Machine Learning", Andrieu et al. 2003
+    - "Data analysis recipes: Fitting a model to data", Hogg et al. 2010
+  * This book has a chapter on Bayesian analysis and Monte Carlo modeling, but I do not have the book yet:
+    - Practical Statistics for Astronomers (Cambridge Observing Handbooks for Research Astronomers), Wall & Jenkins, 2012
+    
+Challenges:
+
+1. As I mentioned above, I am having trouble with the Sersic profiles. I get only noise. I will look at Image_generation_test.ipynb in the repo /python directory.
+
+2. emcee is very challenging. I have some qualitative understanding of it. But I do not understand the mathematical details. I will continue to read background material and study code samples.
