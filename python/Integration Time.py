@@ -40,12 +40,24 @@ def step(ext, dirname, names):
             hdulist=fits.open(fits_file_name)
             start = hdulist[0].header['UTSTART']
             stop = hdulist[0].header['UTSTOP']
-            tel_id = hdulist[0].header['TELID']
-            if tel_id == '1m0a':
-                tel_id = 'Chile' 
-            location.append(tel_id)            
+            site_id = hdulist[0].header['SITEID']
+            if site_id == 'ogg':
+                site_id = 'Haleakala' 
+            elif site_id == 'elp':
+                site_id = 'McDonald' 
+            elif site_id == 'lsc':
+                site_id = 'Cerro Tololo'
+            elif site_id == 'cpt':
+                site_id = 'Sutherland'  
+            elif site_id == 'coj':
+                site_id = 'Siding Spring'   
+            else:
+                site_id = 'Check %s' % fits_file_name
+            location.append(site_id)            
             start_time = float(start[0])*36000 + float(start[1])*3600 + float(start[3])*600 + float(start[4])*60 + float(start[6])*10 + float(start[7]) + float(start[9])*.1 + float(start[10])*.01 + float(start[11])*.001
             stop_time = float(stop[0])*36000 + float(stop[1])*3600 + float(stop[3])*600 + float(stop[4])*60 + float(stop[6])*10 + float(stop[7]) + float(stop[9])*.1 + float(stop[10])*.01 + float(stop[11])*.001
+            if start[0] == 2 and stop[0] == 0:
+                stop_time += 86400
             int_time = stop_time - start_time
             delta_time = abs(int_time - 900)
             all_int_time.append(delta_time)
@@ -60,8 +72,10 @@ def step(ext, dirname, names):
             #print delta_time
             #print all_int_time
             #print ' '
+
     
 os.path.walk('../', step, 'fits')
 
 print all_int_time
 print location
+
