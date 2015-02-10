@@ -80,7 +80,6 @@ plt.imshow(obj3.image, cmap='gray', interpolation='none')
 plt.title('ra: %1.4f dec: %1.4f'%(ra3,dec3))
 plt.colorbar()
 
-
 parms1 = obj1.fit_moffat()
 parms2 = obj2.fit_moffat()
 parms3 = obj3.fit_moffat()
