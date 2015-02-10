@@ -70,8 +70,8 @@ class SourceImage:
     self.pixels = pixels
   def fit_moffat(self):
     print 'fitting'
-    self.x_max, self.y_max=np.unravel_index(self.image.argmax(), self.image.shape)
-    background_count_guess = min(np.unravel_index(self.image.argmax(), self.image.shape))
+    self.x_max, self.y_max = np.unravel_index(self.image.argmax(), self.image.shape)
+    background_count_guess = np.min(self.image)
     #initial_guess = (image[x_max,y_max],x_max,y_max,3.,3.,0.,1500.)
     #initial_guess_simple = (image[x_max,y_max],x_max,y_max,3.,1500.)
     guess_alpha = 3.
@@ -118,7 +118,7 @@ class SourceImage:
     plt.title('ra: %1.4f dec: %1.4f'%(self.ra,self.dec))
     plt.ylim(-15.,15.)
     plt.xlabel('Pixel Distance from Fitted Peak')
-    plt.ylabel(r'Fit $\chi$')
+    plt.ylabel(r'$\chi_p$')
 
   def plot_moffat_chi(self):
     chisq = np.sum((self.moffat_chi)**2)/(len(self.rad)-6.)
@@ -131,7 +131,7 @@ class SourceImage:
     plt.xlim(-10.,10.)
     #plt.ylim(-15.,15.)
     #plt.xlabel('Pixel Distance from Fitted Peak')
-    plt.xlabel(r'Fit $\chi$')
+    plt.xlabel(r'$\chi_p$')
 
 def twoD_Gaussian((x, y), amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
   xo = float(xo)
