@@ -14,21 +14,21 @@ print 'ra',ra,'dec',dec
 #fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0124-e90.fits'
 #fits_file_name = '../data/HE0435_LCOGT/lsc1m009-fl03-20141201-0115-e90.fits'
 #fits_file_name = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90.fits'
-fits_file_name1 = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90_wcs_corrected.fits'
-fits_file_name2 = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0124-e90_wcs_corrected.fits'
-fits_file_name3 = '../data/HE0435_LCOGT/lsc1m009-fl03-20141201-0115-e90_wcs_corrected.fits'
+fits_file_name1 = '../../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90_wcs_corrected.fits'
+#fits_file_name2 = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0124-e90_wcs_corrected.fits'
+#fits_file_name3 = '../data/HE0435_LCOGT/lsc1m009-fl03-20141201-0115-e90_wcs_corrected.fits'
 
 a1 = FITSmanager(fits_file_name1)
-a2 = FITSmanager(fits_file_name2)
-a3 = FITSmanager(fits_file_name3)
+#a2 = FITSmanager(fits_file_name2)
+#a3 = FITSmanager(fits_file_name3)
 
 plt.figure()
 ax = plt.subplot(111)
 ax.set_yscale('log')
 #ax.set_xscale('log')
 a1.plot_image_values()
-a2.plot_image_values()
-a3.plot_image_values()
+#a2.plot_image_values()
+#a3.plot_image_values()
 plt.grid(True)
 plt.legend(loc=1)
 

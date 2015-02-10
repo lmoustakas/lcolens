@@ -16,10 +16,15 @@ class FITSmanager:
     self.image_data = self.hdulist[0].data
     self.bigw=wcs.WCS(self.hdulist[0].header)
 
+  def histogram_image_values(self,NBINS=5000):
+    self.hist, self.bin_edges = np.histogram(self.image_data.flat, bins=NBINS, range=(0.,200000.))
+    self.BW = self.bin_edges[1] - self.bin_edges[0]
+
+
   def plot_image_values(self,NBINS=5000):
     #histogram = plt.hist(self.image_data.flat, log=True, bins=NBINS)
-    hist, bin_edges = np.histogram(self.image_data.flat, bins=NBINS, range=(0.,200000.))
-    plt.plot(bin_edges[:-1],hist+1.e-1, label=self.fits_file_name)
+    self.histogram_image_values(NBINS=NBINS)
+    plt.plot(self.bin_edges[:-1]+self.BW/2.,self.hist+1.e-1, label=self.fits_file_name)
     plt.xlabel('Image Value')
     plt.ylabel('Counts')
     
