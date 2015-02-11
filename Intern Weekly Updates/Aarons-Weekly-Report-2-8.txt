@@ -16,9 +16,9 @@ Here is a summary of my activities for the past week.
 2. emcee
   * I am looking for emcee tutorials ...
   * These astrobites summaries are helpful:
-    -http://astrobites.com/2011/11/26/your-gateway-to-the-bayesian-realm/
-    -http://astrobites.com/2011/07/26/astrostatistics-how-to-fit-a-model-to- data/
-    -http://astrobites.com/2012/02/20/code-you-can-use-the-mcmc-hammer/
+    - http://astrobites.com/2011/11/26/your-gateway-to-the-bayesian-realm/
+    - http://astrobites.com/2011/07/26/astrostatistics-how-to-fit-a-model-to- data/
+    - http://astrobites.com/2012/02/20/code-you-can-use-the-mcmc-hammer/
   * There are some emcee examples here:
     - http://pyspeckit.bitbucket.org/html/sphinx/example_pymc.html
     - http://users.obs.carnegiescience.edu/cburns/ipynbs/Emcee.html

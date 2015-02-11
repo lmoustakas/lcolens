@@ -1,0 +1,11 @@
+TO:	LEONIDAS MOUSTAKAS
+FROM:	CHRISTOPHER GONZALEZ
+SUBJECT:	WEEK 3 - WEEKLY UPDATE
+DATE:	February 9, 2015
+CC:	ANDREW ROMERO-WOLF
+
+I spent a good part of Monday reinstalling Python and Anaconda to remove all traces of 3.4 from my computer. There were a few hidden directories that made this difficult. In the end everything was resolved and I have since been running Python 2.7
+
+I spent the remainder of the week going over a script I wrote to calculate integration times. For the values I was working with, the deviations were in the .1-.01 second range. I have since moved onto looking at other paramaters such as the measured/expected sky brightness and their deviations.
+
+I am still waiting for access to Nisus so I can begin plotting data for each observatory. I have been looking further into matplotlib to do so.
