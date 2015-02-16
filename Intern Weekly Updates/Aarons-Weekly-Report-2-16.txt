@@ -1,0 +1,29 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (2/9-2/15)
+DATE: FEBRUARY 16, 2015
+CC: ANDREW ROMERO-WOLF
+
+Here is a summary of my activities for the past week.
+
+1. GalSim
+
+I have been trying (so far unsuccessfully) to create a FITS image with multiple objects in a single
+frame.  But none of the GalSim demo scripts seem to do this.  GalSim demo4.py creates multiple
+frames in a FITS image cube.  But each frame in the cube contains only one object.  I can easily
+browse through the frames, one after another, but I cannot view several objects at the same time
+in one frame.
+
+GalSim demo5.py produces a tiled image, where each tile contains one object.  So, for instance, I
+can create a 10 x 10 tiled image with an object located at some position in each of these tiles.
+Like a quilt with a different picture stitched in each square.  But I do not see how to create a 
+crowded field this way, since (as far as I can tell) the tiles do not overlap, so the objects are 
+all in their distinct regions.
+
+Other GalSim demo files use this same tiling strategy to create images with multiple objects.
+
+2. emcee
+
+I continue to study the sources I gathered last week concerning Bayesian analysis and Markov Chain
+Monte Carlo.  In particular, I am reading _Practical Statistics for Astronomers_ (Wall and Jenkins,
+2012), which has introductions to these topics.
