@@ -28,11 +28,14 @@ class FITSmanager:
     plt.xlabel('Image Value')
     plt.ylabel('Counts')
     
-  def plot_image(self, ra_center=None, dec_center=None, rad=None):
+  def plot_image(self, ra_center=None, dec_center=None, rad=None, full_range=False):
     gc = aplpy.FITSFigure(self.fits_file_name)
-    if(ra_center==None and dec_center==None and rad==None):
+    if(ra_center==None and dec_center==None and rad==None and full_range==True):
+      print 'It is True, it is True, full_range is True'
+      gc.show_grayscale()
+    if(ra_center==None and dec_center==None and rad==None and full_range==False):
       gc.show_grayscale(vmin=np.percentile(self.image_data,5),vmax=np.percentile(self.image_data,98.5))
-    if(ra_center!=None and dec_center!=None and rad!=None):
+    if(ra_center!=None and dec_center!=None and rad!=None and full_range==False):
       gc.recenter(ra_center, dec_center, radius=rad) 
       gc.show_grayscale(vmin=np.percentile(self.image_data,5),vmax=np.percentile(self.image_data,98.5))
     gc.add_colorbar()

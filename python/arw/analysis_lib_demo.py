@@ -18,6 +18,10 @@ fits_file_name1 = '../../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90_wcs_c
 #fits_file_name2 = '../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0124-e90_wcs_corrected.fits'
 #fits_file_name3 = '../data/HE0435_LCOGT/lsc1m009-fl03-20141201-0115-e90_wcs_corrected.fits'
 
+fits_file_name1 = '/data2/romerowo/lcogt_data/he045-1223/cpt1m010-kb70-20141218-0103-e90.fits' # bad file
+fits_file_name1 = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/corrected_fits/wcs_corrected_cpt1m010-kb70-20141217-0139-e90.fits' # green filter low background counts
+fits_file_name1 = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/corrected_fits/wcs_corrected_cpt1m010-kb70-20141217-0103-e90.fits' # red filter, low background
+fits_file_name1 = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/corrected_fits/wcs_corrected_cpt1m010-kb70-20141217-0081-e90.fits' # red filter, high background
 a1 = FITSmanager(fits_file_name1)
 #a2 = FITSmanager(fits_file_name2)
 #a3 = FITSmanager(fits_file_name3)
@@ -45,6 +49,7 @@ ra3 = (4.+38./60.+12.97/60./60.)/24*360
 dec3 = -12. - (17./60 +51.7/60./60.)
 
 #plt.figure()
+a1.plot_image(full_range=True)
 a1.plot_image()
 a1.plot_image(ra_center=ra,dec_center=dec,rad=0.015)
 
@@ -79,6 +84,8 @@ plt.subplot(221)
 plt.imshow(obj3.image, cmap='gray', interpolation='none')
 plt.title('ra: %1.4f dec: %1.4f'%(ra3,dec3))
 plt.colorbar()
+
+#plt.show()
 
 parms1 = obj1.fit_moffat()
 parms2 = obj2.fit_moffat()
