@@ -1,0 +1,14 @@
+TO:	LEONIDAS MOUSTAKAS
+FROM:	CHRISTOPHER GONZALEZ
+SUBJECT:	WEEK 4, 5 - WEEKLY UPDATE
+DATE:	February 23, 2015
+CC:	ANDREW ROMERO-WOLF
+
+In the past two weeks I have gotten access to nisus and begun plotting with the entire dataset. For the week of 2/9 I created a python notebook that looks at the calculated sky brightness, measured sky brightness, and its deviations. All of this data was a plotted as function of MJD.  Once I completed this I also began looking at the effective mean airmass as a function of MJD.
+
+For the week of 2/16 I expanded on this notebook and began looking at the various filters being used for each observatory. I was able to extract the filters being used and count the number of times each observatory used a different filter. The filters used can be seen below:
+lsc: {'SDSS-RP-178': 76, 'SDSS-RP-179': 81, 'SDSS-GP-179': 4, 'SDSS-GP-178': 8}
+cpt: {'SDSS-GP-181': 8, 'SDSS-RP-181': 154}
+coj: {'SDSS-GP-184': 4, 'SDSS-RP-184': 79, 'SDSS-RP-183': 10}
+
+Andrew has since asked me to expand on the work he has done recently. I have begun looking into the methods and classes he wrote in his arw folder in the repository.
