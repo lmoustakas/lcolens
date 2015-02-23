@@ -1,0 +1,23 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (2/16-2/22)
+DATE: FEBRUARY 23, 2015
+CC: ANDREW ROMERO-WOLF
+
+Here is a summary of my activities for the past week.
+
+1. Tuesday was my first day on lab!  I went through orientation at the Education Office, and then
+Andrew helped me set up network access.
+
+2. On-line training.  I completed on-line safety, import/export, and computer security training.
+
+3. GalSim
+
+I am still working on plotting multiple objects in a single frame.  I imported GalSim demo9.py into 
+an ipython notebook, and tried to whittle away the inessential commands and leave only the
+functional core.  However, in my first attempt at this, the resulting code would not run.
+According to the error messages, I am passing an inappropriate value to the GalSim Position()
+function.  Troubleshooting has so far been unsuccessful.  I will continue to work on it.
+
+4. No work on emcee last week.  But Andrew mentioned perhaps meeting today to walk me through it.
+
