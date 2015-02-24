@@ -1,0 +1,45 @@
+SDSS-GP-178,,,SDSS-GP-179,,,SDSS-GP-181,,,SDSS-GP-183,,,SDSS-GP-184,
+used by,lsc,,used by,lsc,,used by,cpt,,used by,coj,,used by,coj
+frequency,8,,frequency,4,,frequency,8,,frequency,10,,frequency,4
+filt id,1020,,filt id,1021,,filt id,1348,,filt id,1350,,filt id,1351
+filterwheel fw id,fws1m0-05,,filterwheel fw id,fws1m0-07,,filterwheel fw id,fws1m0-08,,filterwheel fw id,fws1m0-10,,filterwheel fw id,fws1m0-11
+filt filter,SDSS-GP-178,,filt filter,SDSS-GP-179,,filt filter,SDSS-GP-181,,filt filter,SDSS-GP-183,,filt filter,SDSS-GP-184
+filt name,SDSS g',,filt name,SDSS g',,filt name,SDSS g',,filt name,SDSS g',,filt name,SDSS g'
+filt format,square,,filt format,square,,filt format,square,,filt format,square,,filt format,square
+filt length,75,,filt length,75,,filt length,75,,filt length,75,,filt length,75
+filt breadth,75,,filt breadth,75,,filt breadth,75,,filt breadth,75,,filt breadth,75
+filt thickness,3,,filt thickness,3,,filt thickness,3,,filt thickness,3,,filt thickness,3
+Filter Manuf.,Astrodon,,Filter Manuf.,Astrodon,,Filter Manuf.,Astrodon,,Filter Manuf.,Astrodon,,Filter Manuf.,Astrodon
+filt manudate,19-Mar-12,,filt manudate,19-Mar-12,,filt manudate,13-Jun-12,,filt manudate,13-Jun-12,,filt manudate,13-Jun-12
+filt center,474,,filt center,474,,filt center,474,,filt center,474,,filt center,474
+filt fwhm,151,,filt fwhm,151,,filt fwhm,151,,filt fwhm,151,,filt fwhm,151
+filt wheel,1,,filt wheel,1,,filt wheel,1,,filt wheel,1,,filt wheel,1
+filt slot,2,,filt slot,2,,filt slot,2,,filt slot,2,,filt slot,2
+filt install,None,,filt install,None,,filt install,"1/27/2013, 10:37 p.m.",,filt install,"5/15/2013, 5:22 a.m.",,filt install,"5/15/2013, 5:22 a.m."
+filt removed,None,,filt removed,None,,filt removed,None,,filt removed,None,,filt removed,None
+filt cleandate,None,,filt cleandate,None,,filt cleandate,None,,filt cleandate,None,,filt cleandate,None
+filt status,1,,filt status,1,,filt status,1,,filt status,1,,filt status,1
+filt ts,"5/21/2013, 4:15 p.m.",,filt ts,"5/21/2013, 4:21 p.m.",,filt ts,"1/28/2013, 6:01 p.m.",,filt ts,"Nov. 21, 2013, 2:13 p.m.",,filt ts,"Nov. 21, 2013, 2:22 p.m."
+,,,,,,,,,,,,,
+SDSS-RP-178,,,SDSS-RP-179,,,SDSS-RP-181,,,SDSS-RP-184,,,,
+used by,lsc,,used by,lsc,,used by,cpt,,used by,coj,,,
+frequency,76,,frequency,81,,frequency,154,,frequency,79,,,
+filt id,1072,,filt id,1073,,filt id,1360,,filt id,1363,,,
+filterwheel fw id,fws1m0-05,,filterwheel fw id,fws1m0-07,,filterwheel fw id,fws1m0-08,,filterwheel fw id,fws1m0-11,,,
+filt filter,SDSS-RP-178,,filt filter,SDSS-RP-179,,filt filter,SDSS-RP-181,,filt filter,SDSS-RP-184,,,
+filt name,SDSS r',,filt name,SDSS r',,filt name,SDSS r',,filt name,SDSS r',,,
+filt format,square,,filt format,square,,filt format,square,,filt format,square,,,
+filt length,75,,filt length,75,,filt length,75,,filt length,75,,,
+filt breadth,75,,filt breadth,75,,filt breadth,75,,filt breadth,75,,,
+filt thickness,3,,filt thickness,3,,filt thickness,3,,filt thickness,3,,,
+Filter Manuf.,Astrodon,,Filter Manuf.,Astrodon,,Filter Manuf.,Astrodon,,Filter Manuf.,Astrodon,,,
+filt manudate,19-Mar-12,,filt manudate,19-Mar-12,,filt manudate,13-Jun-12,,filt manudate,13-Jun-12,,,
+filt center,622,,filt center,622,,filt center,622,,filt center,622,,,
+filt fwhm,134,,filt fwhm,134,,filt fwhm,134,,filt fwhm,134,,,
+filt wheel,1,,filt wheel,1,,filt wheel,1,,filt wheel,1,,,
+filt slot,3,,filt slot,3,,filt slot,3,,filt slot,3,,,
+filt install,None,,filt install,None,,filt install,"1/27/2013, 10:37 p.m.",,filt install,"5/15/2013, 5:22 a.m.",,,
+filt removed,None,,filt removed,None,,filt removed,None,,filt removed,None,,,
+filt cleandate,None,,filt cleandate,None,,filt cleandate,None,,filt cleandate,None,,,
+filt status,1,,filt status,1,,filt status,1,,filt status,1,,,
+filt ts,"5/21/2013, 4:15 p.m.",,filt ts,"5/21/2013, 4:21 p.m.",,filt ts,"1/28/2013, 6:03 p.m.",,filt ts,"Nov. 21, 2013, 2:22 p.m.",,,
