@@ -19,46 +19,27 @@ ra = (4.+38./60.+14.9/60./60.)/24*360
 dec = -12. - (17./60 +14.4/60./60.)
 print 'ra',ra,'dec',dec
 
-data_dir = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/corrected_fits/'
-#data_dir = '/data2/romerowo/lcogt_data/he045-1223/'
 
-# GET FILE NAMES IN DATA DIRECTORY
-fnms = os.listdir(data_dir)
-print 'Number of files:', len(fnms)
-fnms_filtered = []
-for f in fnms:
-  if(len(f.split('-'))>3):
-     fnms_filtered.append(f)
-fnms = fnms_filtered
-print 'Number of files after filtering:', len(fnms)
 
-print 'READING THE FITS FILE OBSERVATION TIMES FOR ORDERING PURPOSES'
-mjd_obs_list = []
-fnms_list=[]
+
+
+data_directory = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/'
+fnms = time_order_fits_files(data_directory)
+
+
+print 'GETTING MINIMUM AND MAXIMUM AIRMASS VALUES'
 max_airmass=0.
 min_airmass=1.e10
 for i in range(len(fnms)):
     if(i%50==0): print '%d of %d files read'%(i,len(fnms))
     d=fnms[i].split('-')
-    #print i,fnms[i]
-    fnms_list.append(fnms[i])
-    fits_file_name = data_dir + fnms[i]
+    fits_file_name = data_directory + fnms[i]
     hdulist = fits.open(fits_file_name)
-    mjd_obs_list.append(float(hdulist[0].header['MJD-OBS']))
     if(float(hdulist[0].header['AIRMASS']) > max_airmass): max_airmass = float(hdulist[0].header['AIRMASS'])
     if(float(hdulist[0].header['AIRMASS']) < min_airmass): min_airmass = float(hdulist[0].header['AIRMASS'])
     hdulist.close()
 
-#print min_airmass
-#exit()
-#fnms_tm = [fnm.split('-')[2]+'-'+fnm.split('-')[3] for fnm in fnms]
-print 'SORTING THE FILE NAME LIST IN TIME ORDER'
 
-fnms = [x for (y,x) in sorted(zip(mjd_obs_list, fnms_list))]
-#for k in range(0,len(fnms)):
-#	print fnms[k]
-#exit()
-print 'Number of files after sorting:', len(fnms)
 count=0
 fout = open('output.dat','w')
 
@@ -80,14 +61,14 @@ for i in range(len(fnms)):
     #gs = plt.GridSpec(1, 2, width_ratios=[3, 1]) 
     print '%d of %d \t %s'%(i,len(fnms), fnms[i])
     fnm = fnms[i]
-    fits_file_name = data_dir + fnm
+    fits_file_name = data_directory + fnm
     FM = FITSmanager(fits_file_name)
     #print FM.hdulist[0].header['MJD-OBS']
     mjd = float(FM.hdulist[0].header['MJD-OBS'])
     airmass = float(FM.hdulist[0].header['AIRMASS'])
     #print '\tairmass', airmass
-    #if(FM.hdulist[0].header['FILTER']=='rp' and mjd>57007.):
-    if(FM.hdulist[0].header['FILTER']=='gp' and mjd>57007.):
+    if(FM.hdulist[0].header['FILTER']=='rp' and mjd>57007.):
+    #if(FM.hdulist[0].header['FILTER']=='gp' and mjd>57007.):
 	    obj  = SourceImage(FM, ra,  dec,  25)
             min_val = np.min(obj.image)
 	    max_val = np.max(obj.image)

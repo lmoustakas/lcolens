@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from astropy.io import fits
 from astropy import wcs
 
@@ -7,6 +8,40 @@ import aplpy
 import pylab as plt
 import scipy.optimize as opt
 
+def time_order_fits_files(data_dir):
+	# GET ALL DATA FILE NAMES IN DATA DIRECTORY AND SORT THEM BY MJD
+	print 'READING THE FITS FILE OBSERVATION TIMES FOR ORDERING PURPOSES'
+	fnms = os.listdir(data_dir)
+	print 'Number of files in directory:', len(fnms)
+	fnms_filtered = []
+	for f in fnms:
+	  if(len(f.split('-'))>3):
+	     fnms_filtered.append(f)
+	fnms = fnms_filtered
+	print 'Number of files after filtering for valid data file names:', len(fnms)
+
+	print 'READING THE FITS FILE OBSERVATION TIMES FOR ORDERING PURPOSES'
+	mjd_obs_list = []
+	fnms_list=[]
+	for i in range(len(fnms)):
+	    if(i%50==0): print '%d of %d files read'%(i,len(fnms))
+	    d=fnms[i].split('-')
+	    #print i,fnms[i]
+	    fnms_list.append(fnms[i])
+	    fits_file_name = data_dir + fnms[i]
+	    hdulist = fits.open(fits_file_name)
+	    mjd_obs_list.append(float(hdulist[0].header['MJD-OBS']))
+	    hdulist.close()
+
+	print 'SORTING THE FILE NAME LIST IN TIME ORDER'
+
+	fnms = [x for (y,x) in sorted(zip(mjd_obs_list, fnms_list))]
+	print 'Number of files after sorting:', len(fnms)
+	return fnms
+
+################################################################################################################
+################################################################################################################
+################################################################################################################
 
 class FITSmanager:
   def __init__(self,fits_file_name):
@@ -57,7 +92,7 @@ def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset):
   m = offset + amplitude*( 1. + ((x-xo)**2 + (y-yo)**2) / (2.*alpha**2))**(-beta)
   #print np.array(g)
   #print g
-  print 'in Moffat 2D', offset, amplitude, a, amplitude*a
+  #print 'in Moffat 2D', offset, amplitude, a, amplitude*a
   if(alpha<0.): m+=1.e9
   #print offset
   return m.ravel()
