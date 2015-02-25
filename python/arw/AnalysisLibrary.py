@@ -65,7 +65,7 @@ def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset):
 
 def twoD_Moffat_proj(x, amplitude, alpha, beta, xo, yo, offset):
   a = (beta-1.)/(np.pi*alpha**2)
-  m = offset + amplitude * a * ( 1. + (x**2) / (2.*alpha**2))**(-beta)
+  m = offset + amplitude * ( 1. + (x**2) / (2.*alpha**2))**(-beta)
   #print np.array(g)
   #print g
   return m.ravel()
