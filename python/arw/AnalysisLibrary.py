@@ -54,9 +54,10 @@ def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset):
   xo = float(xo)
   yo = float(yo)    
   a = (beta-1.)/(np.pi*alpha**2)
-  m = offset + amplitude * a *( 1. + ((x-xo)**2 + (y-yo)**2) / (2.*alpha**2))**(-beta)
+  m = offset + amplitude*( 1. + ((x-xo)**2 + (y-yo)**2) / (2.*alpha**2))**(-beta)
   #print np.array(g)
   #print g
+  print 'in Moffat 2D', offset, amplitude, a, amplitude*a
   if(alpha<0.): m+=1.e9
   #print offset
   return m.ravel()
@@ -70,14 +71,19 @@ def twoD_Moffat_proj(x, amplitude, alpha, beta, xo, yo, offset):
   return m.ravel()
   #return np.array(g)    
   
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+
 class SourceImage:
   def __init__(self,AnLib, ra,dec, pixels):
     self.image = AnLib.image_piece(ra, dec, pixels)
     self.ra = ra
     self.dec = dec
     self.pixels = pixels
-  def fit_moffat(self):
-    print 'fitting'
+
+  def fit_moffat(self, verbose=False):
+    if(verbose): print 'fitting'
     self.x_max, self.y_max = np.unravel_index(self.image.argmax(), self.image.shape)
     background_count_guess = np.min(self.image)
     #initial_guess = (image[x_max,y_max],x_max,y_max,3.,3.,0.,1500.)
@@ -85,14 +91,15 @@ class SourceImage:
     guess_alpha = 3.
     guess_beta = 2.
     self.initial_guess_moffat = (self.image[self.x_max,self.y_max], guess_alpha, guess_beta, self.x_max, self.y_max, background_count_guess)
-    print len(self.image)
+    if(verbose): print 'initial guess', self.initial_guess_moffat
+    if(verbose): print len(self.image)
     x=np.arange(0.,len(self.image))
     y=np.arange(0.,len(self.image))
     self.xg, self.yg = np.mgrid[:len(self.image), :len(self.image)]
     #popt, pcov = opt.curve_fit(twoD_Gaussian, (xg, yg), image.ravel(), p0=initial_guess)
     #popt, pcov = opt.curve_fit(twoD_Gaussian_simple, (xg, yg), image.ravel(), p0=initial_guess_simple)
     popt, pcov = opt.curve_fit(twoD_Moffat, (self.xg, self.yg), self.image.ravel(), p0=self.initial_guess_moffat)
-    print popt
+    if(verbose): print popt
     
     self.moffat_fit_image = twoD_Moffat((self.xg, self.yg), *popt).reshape(len(self.image),len(self.image))
 
@@ -115,7 +122,9 @@ class SourceImage:
     txt+= 'beta:          %1.2f\n'%self.moffat_parms[2]
     txt+= 'FWHM:          %1.2f\n'%self.moffat_fwhm
     txt+= 'offset:       %1.2e'%self.moffat_parms[5]
-    plt.plot(self.rad,twoD_Moffat_proj(self.rad, *self.moffat_parms),'r-',label=txt)
+    #plt.plot(self.rad,twoD_Moffat_proj(self.rad, *self.moffat_parms),'r-',label=txt)
+    x = np.arange(0.,self.pixels,0.01)
+    plt.plot(x,twoD_Moffat_proj(x, *self.moffat_parms),'r-',label=txt)
     plt.legend(loc=1)
     plt.title('ra: %1.4f dec: %1.4f'%(self.ra,self.dec))
     plt.xlabel('Pixel Distance from Fitted Peak')
@@ -126,7 +135,7 @@ class SourceImage:
     plt.title('ra: %1.4f dec: %1.4f'%(self.ra,self.dec))
     plt.ylim(-15.,15.)
     plt.xlabel('Pixel Distance from Fitted Peak')
-    plt.ylabel(r'$\chi_p$')
+    plt.ylabel(r'$\chi_p$', fontsize=20)
 
   def plot_moffat_chi(self):
     chisq = np.sum((self.moffat_chi)**2)/(len(self.rad)-6.)
@@ -167,21 +176,22 @@ def twoD_Gaussian_simple((x, y), amplitude, xo, yo, sigma, offset):
   
 
 
-def fit_guassian(image):
-  print 'fitting'
+def fit_guassian(image, verbose=False):
+
+  if(verbose): print 'fitting'
   x_max, y_max=np.unravel_index(image.argmax(), image.shape)
 
   #initial_guess = (image[x_max,y_max],x_max,y_max,3.,3.,0.,1500.)
   #initial_guess_simple = (image[x_max,y_max],x_max,y_max,3.,1500.)
   initial_guess_moffat = (image[x_max,y_max],3.,2.,x_max,y_max,1500.)
-  print len(image)
+  if(verbose):print len(image)
   x=np.arange(0.,len(image))
   y=np.arange(0.,len(image))
   xg, yg = np.mgrid[:len(image), :len(image)]
   #popt, pcov = opt.curve_fit(twoD_Gaussian, (xg, yg), image.ravel(), p0=initial_guess)
   #popt, pcov = opt.curve_fit(twoD_Gaussian_simple, (xg, yg), image.ravel(), p0=initial_guess_simple)
   popt, pcov = opt.curve_fit(twoD_Moffat, (xg, yg), image.ravel(), p0=initial_guess_moffat)
-  print popt
+  if(verbose):print popt
   return popt
 
 def radial_profile(image, x0,y0):
