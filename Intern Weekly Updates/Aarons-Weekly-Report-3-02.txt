@@ -1,0 +1,35 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (2/23-3/01)
+DATE: MARCH 2, 2015
+CC: ANDREW ROMERO-WOLF
+
+In the past week I focused on the emcee python package.  I did not work on GalSim.
+
+1. I understand emcee much better after re-reading the emcee "quickstart" example
+(http://dan.iel.fm/emcee/current/user/quickstart/) and the paper "emcee: The MCMC Hammer" by
+Foreman-Mackey et al.  I went through the sample code line-by-line and looked up the numpy functions
+as necessary.  In the context of Bayesian analysis, am I right that the multi-dimensional Gaussian
+sampled in this example is the likelihood function?  I would like to talk to someone about how to
+interpret x, mu, and Sigma in this formula.  (I know they represent the observation, mean, and
+covariance matrices.)  Do they relate to the data, signal and noise?
+
+2. During our Wednesday meeting it was decided that I should study the noise in the data as a step
+towards formulating a likelihood function.  I have read in detail about photon noise, dark noise,
+and read noise, and how they are added (in quadrature).  I am still uncertain how to formulate a
+likelihood function from these noise formulas.
+
+3. On Friday Andrew asked me to prepare a couple of slides for Wednesday about a possible
+likelihood function.  Curtis said that the ipython notebook he recently posted (which calculates
+and plots the double integral of a Moffat function) would be relevant to this, so I have studied it
+-- but so far I do not understand how it helps me.  I am looking for examples of likelihood
+functions to guide me.  On Wikipedia I found a log likelihood function for a multi-dimensional
+Gaussian which contains some familiar terms, but also some unfamiliar ones.  It is still not clear
+how these formulas relate to the sources of noise.
+
+A sampling of on-line sources about noise (some of them are about microscopy, but the principles
+seem to be the same):
+
+http://www.photometrics.com/resources/technotes/pdfs/snr.pdf
+http://www.microscopyu.com/tutorials/java/digitalimaging/signaltonoise/
+http://qsimaging.com/ccd_noise.html
