@@ -1,0 +1,9 @@
+TO:	LEONIDAS MOUSTAKAS
+FROM:	CHRISTOPHER GONZALEZ
+SUBJECT:	WEEK 6 - WEEKLY UPDATE
+DATE:	March 02, 2015
+CC:	ANDREW ROMERO-WOLF
+
+I have been working on Andrew's code to calculate the FWHM for all observations. I've been troubleshooting the code trying to integrate everything together. It seems like my code is close to working, but there is a runtime error, RuntimeError: Optimal parameters not found: Number of calls to function has reached maxfev = 1400.
+
+I will be trying to figure out a way to better call these functions to avoid runtime errors.
