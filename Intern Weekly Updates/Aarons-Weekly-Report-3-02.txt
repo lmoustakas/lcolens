@@ -6,6 +6,9 @@ CC: ANDREW ROMERO-WOLF
 
 In the past week I focused on the emcee python package.  I did not work on GalSim.
 
+UPDATE:  Made lots of progress today (Monday, 3/2).  Not so lost.  This lecture was very helpful:
+http://www.maths.bath.ac.uk/~sw283/simon/inference.pdf
+
 1. I understand emcee much better after re-reading the emcee "quickstart" example
 (http://dan.iel.fm/emcee/current/user/quickstart/) and the paper "emcee: The MCMC Hammer" by
 Foreman-Mackey et al.  I went through the sample code line-by-line and looked up the numpy functions
