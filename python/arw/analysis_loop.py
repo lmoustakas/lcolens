@@ -14,7 +14,7 @@ dec = -12. - (17./60 +14.4/60./60.)
 print 'ra',ra,'dec',dec
 
 #data_dir = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/corrected_fits/'
-data_dir = '/data2/romerowo/lcogt_data/he045-1223/'
+data_dir = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/'
 
 # GET FILE NAMES IN DATA DIRECTORY
 fnms = os.listdir(data_dir)

@@ -1,6 +1,7 @@
 import numpy as np
 import os
 from astropy.io import fits
+from astropy.io import ascii
 from astropy import wcs
 
 from wcsaxes import WCSAxes
@@ -35,8 +36,11 @@ def time_order_fits_files(data_dir):
 
 	print 'SORTING THE FILE NAME LIST IN TIME ORDER'
 
-	fnms = [x for (y,x) in sorted(zip(mjd_obs_list, fnms_list))]
+	fnms    = [x for (y,x) in sorted(zip(mjd_obs_list, fnms_list))]
+	fnm_mjd = [y for (y,x) in sorted(zip(mjd_obs_list, fnms_list))]
 	print 'Number of files after sorting:', len(fnms)
+	ascii.write([fnms, fnm_mjd], 'time_ordered_file_list.dat', names=['filename', 'mjd'] )
+
 	return fnms
 
 ################################################################################################################
