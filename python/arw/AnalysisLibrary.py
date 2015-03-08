@@ -1,4 +1,5 @@
 import numpy as np
+import datetime
 import os
 from astropy.io import fits
 from astropy.io import ascii
@@ -71,7 +72,12 @@ class FITSmanager:
     gc = aplpy.FITSFigure(self.fits_file_name)
     if(ra_center==None and dec_center==None and rad==None and full_range==True):
       print 'It is True, it is True, full_range is True'
-      gc.show_grayscale()
+      gc.show_colorscale(vmin=np.percentile(self.image_data,0.1),vmax=np.percentile(self.image_data,99.9))
+      plt.title('Full Range')
+      gc.add_colorbar()
+      xlabel='Right Ascension (J2000)'
+      ylabel='Declination (J2000)'
+      return
     if(ra_center==None and dec_center==None and rad==None and full_range==False):
       gc.show_grayscale(vmin=np.percentile(self.image_data,5),vmax=np.percentile(self.image_data,98.5))
     if(ra_center!=None and dec_center!=None and rad!=None and full_range==False):
@@ -88,6 +94,16 @@ class FITSmanager:
     zoom_data = self.image_data[y-pixels/2:y+pixels/2,x-pixels/2:x+pixels/2]
     return zoom_data
     #plt.figure()
+
+  def get_exposure_time(self):
+	  t1 = self.hdulist[0].header['UTSTART']
+	  t2 = self.hdulist[0].header['UTSTOP']
+	  #print t1+'000',t2
+	  self.start_time = datetime.datetime.strptime(t1,"%H:%M:%S.%f")
+	  self.end_time = datetime.datetime.strptime(t2,"%H:%M:%S.%f")
+	  self.exposure_time = (self.end_time - self.start_time).seconds + (self.end_time - self.start_time).microseconds/1.e6
+	  return self.exposure_time
+
 
 def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset):
   xo = float(xo)
@@ -115,8 +131,9 @@ def twoD_Moffat_proj(x, amplitude, alpha, beta, xo, yo, offset):
 #####################################################################################################################
 
 class SourceImage:
-  def __init__(self,AnLib, ra,dec, pixels):
-    self.image = AnLib.image_piece(ra, dec, pixels)
+  def __init__(self,FM, ra,dec, pixels):
+    self.FM = FM
+    self.image = FM.image_piece(ra, dec, pixels)
     self.ra = ra
     self.dec = dec
     self.pixels = pixels

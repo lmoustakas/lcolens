@@ -20,8 +20,8 @@ fits_file_name1 = '../../data/HE0435_LCOGT/lsc1m004-fl04-20141201-0123-e90_wcs_c
 
 fits_file_name1 = '/data2/romerowo/lcogt_data/he045-1223/cpt1m010-kb70-20141218-0103-e90.fits' # bad file
 fits_file_name1 = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/corrected_fits/wcs_corrected_cpt1m010-kb70-20141217-0139-e90.fits' # green filter low background counts
-fits_file_name1 = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/corrected_fits/wcs_corrected_cpt1m010-kb70-20141217-0103-e90.fits' # red filter, low background
-fits_file_name1 = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/corrected_fits/wcs_corrected_cpt1m010-kb70-20141217-0081-e90.fits' # red filter, high background
+fits_file_name1 = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/cpt1m010-kb70-20141217-0103-e90.fits' # red filter, low background
+#fits_file_name1 = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/cpt1m010-kb70-20141217-0081-e90.fits' # red filter, high background
 a1 = FITSmanager(fits_file_name1)
 #a2 = FITSmanager(fits_file_name2)
 #a3 = FITSmanager(fits_file_name3)
@@ -50,6 +50,7 @@ dec3 = -12. - (17./60 +51.7/60./60.)
 
 #plt.figure()
 a1.plot_image(full_range=True)
+#plt.show()
 a1.plot_image()
 a1.plot_image(ra_center=ra,dec_center=dec,rad=0.015)
 
