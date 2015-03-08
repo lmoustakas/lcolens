@@ -55,14 +55,14 @@ class FITSmanager:
     self.image_data = self.hdulist[0].data
     self.bigw=wcs.WCS(self.hdulist[0].header)
 
-  def histogram_image_values(self,NBINS=5000):
-    self.hist, self.bin_edges = np.histogram(self.image_data.flat, bins=NBINS, range=(0.,200000.))
+  def histogram_image_values(self,NBINS=5000, rng_max=200000.):
+    self.hist, self.bin_edges = np.histogram(self.image_data.flat, bins=NBINS, range=(0.,rng_max))
     self.BW = self.bin_edges[1] - self.bin_edges[0]
 
 
-  def plot_image_values(self,NBINS=5000):
+  def plot_image_values(self,NBINS=5000, rng_max=200000.):
     #histogram = plt.hist(self.image_data.flat, log=True, bins=NBINS)
-    self.histogram_image_values(NBINS=NBINS)
+    self.histogram_image_values(NBINS=NBINS, rng_max=rng_max)
     plt.plot(self.bin_edges[:-1]+self.BW/2.,self.hist+1.e-1, label=self.fits_file_name)
     plt.xlabel('Image Value')
     plt.ylabel('Counts')
@@ -241,4 +241,73 @@ def radial_profile(image, x0,y0):
 	r.append(np.sqrt((float(i)-x0)**2 + (float(j)-y0)**2))
 	amp.append(image[i][j])
   return np.array(r), np.array(amp)
+
+
+
+
+################################################################
+################################################################
+################################################################
+
+def estimate_background_and_read_noise(fits_file_name, display=False):
+	# READ FITS FILE
+	FM = FITSmanager(fits_file_name)
+	# PRODUCE A HISTOGRAM OF THE IMAGE COUNTS IN THE LOW END
+	FM.histogram_image_values(NBINS=10000, rng_max=10000.)
+	# ESTIMATE THE BACKGROUND COUNTS AS THE MOST COMMON VALUE OF THE IMAGE
+	N_bkg = FM.bin_edges[np.argmax(FM.hist)]
+	# GET THE LOWER POINT AT WHICH THE COUNTS ARE REDUCED BY A FACTOR OF EXP(-0.5) 
+	sig_N_bkg_index = np.argmin((FM.hist[:np.argmax(FM.hist)]-np.exp(-0.5)*np.max(FM.hist))**2) 
+	# ESTIMATE THE SIGMA OF THE DISTRIBUTION BASED ON THE LOCATION OF THIS POINT 
+	sig_N_bkg = FM.bin_edges[np.argmax(FM.hist)] -  FM.bin_edges[sig_N_bkg_index]
+	# THE READ NOISE IS THE DISCREPANCY (in quadrature) BETWEEN sqrt(N_bkg) AND THE SIGMA OF THE DISTRIBUTION ESTIMATED ABOVE
+	sigma_read = 0.
+	if(sig_N_bkg**2-FM.bin_edges[np.argmax(FM.hist)] > 0.):
+		sigma_read = np.sqrt(sig_N_bkg**2-FM.bin_edges[np.argmax(FM.hist)])
+	print 'Pixel Value Background:\t%1.0f'%FM.bin_edges[np.argmax(FM.hist)]
+	print 'Bkg Standard Deviation:\t%1.2f'%sig_N_bkg
+	print 'sqrt(N_bkg)\t\t%1.2f'%np.sqrt(FM.bin_edges[np.argmax(FM.hist)])
+	print 'Read noise\t\t%1.2f'%sigma_read
+	if(display):
+
+		#subplot(211)
+		plt.plot(FM.bin_edges[:-1],FM.hist, lw=2)
+		plt.plot(FM.bin_edges[:np.argmax(FM.hist)],FM.hist[:np.argmax(FM.hist)], '--', lw=2, color='orange')
+		plt.plot([FM.bin_edges[np.argmax(FM.hist)],FM.bin_edges[np.argmax(FM.hist)]],[0.,max(FM.hist)],'r--', lw=2)
+		plt.plot([FM.bin_edges[sig_N_bkg_index],FM.bin_edges[sig_N_bkg_index]],[0.,np.exp(-0.5)*max(FM.hist)],'g--', lw=2)
+		plt.xlim(0., 3.*FM.bin_edges[np.argmax(FM.hist)])
+		plt.ylabel('Counts')
+		plt.xlabel('Pixel Value')
+		#print k, FM.bin_edges[np.argmax(FM.hist)]
+		plt.show()
+	return N_bkg, sigma_read
+
+def make_background_counts_and_read_noise_table():
+  dirc = '/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/'
+  filename_table = ascii.read('time_ordered_file_list.dat')
+  N_bkg = []
+  sigma_read = []
+  count=0
+  bad_observation_list=[364,365, 386]
+  #bad_observation_list=[-1]
+  print len(filename_table['filename'])
+  for k in range(0,len(filename_table['filename'])):
+    FM = FITSmanager(dirc+filename_table['filename'][k])
+    #FM.plot_image_values(NBINS=10000, rng_max=10000)
+    print '\n'
+    print '%d of %d: %s'%(k, len(filename_table['filename']), filename_table['filename'][k])
+    if(k in bad_observation_list):
+	print ' The file %s has been tagged as bad data'%filename_table['filename'][k]
+	N_bkg.append(-1)
+	sigma_read.append(-1)
+    if(k not in bad_observation_list):
+	N_bkg_val, sigma_read_val = estimate_background_and_read_noise(dirc+filename_table['filename'][k])
+	N_bkg.append(N_bkg_val)
+	sigma_read.append(sigma_read_val)
+	count += 1
+
+  ascii.write([filename_table['filename'], filename_table['mjd'], N_bkg, sigma_read], 'bkg_counts_and_read_noise.tbl', names=['filename', 'mjd', 'N_bkg', 'read_noise'])
+
+#get_background_counts()
+#exit()
 
