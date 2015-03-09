@@ -1,0 +1,19 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (3/2 - 3/9)
+DATE: MARCH 9, 2015
+CC: ANDREW ROMERO-WOLF
+
+I am working to formulate a Bayesian likelihood function, which (multiplied by a suitable 'prior')
+we can sample with the emcee python package to estimate the uncertainty on the parameters of our
+models.  (Have I stated the task correctly?)
+
+In light of our meeting on Wednesday (3/4), I obtained Sivia's _Data Analysis_ on Friday (3/6).  I
+have read the first three chapters carefully, and skimmed through chapters 4 and 5.  The second half
+of the book (Advanced Topics) may not be relevant to my immediate task.  (Please tell me if I am
+wrong about that.)
+
+I think most of the confusion last week was a result of my thinking that the models we have used
+(Moffat, Sersic, etc.) could be used as probability density functions to construct a likelihood
+function.  I understand now that the likelihood function I am seeking will be a Gaussian pdf with
+the models embedded in the exponent.
