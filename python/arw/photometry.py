@@ -97,8 +97,8 @@ filename_table = ascii.read('t_ord_image_stats.dat')
 #print APASS_table
 
 # DECIMAL RA and DEC VALUES OF HE0435-1223
-#ra = (4.+38./60.+14.9/60./60.)/24*360 
-#dec = -12. - (17./60 +14.4/60./60.)
+ra_qsr = (4.+38./60.+14.9/60./60.)/24*360 
+dec_qsr = -12. - (17./60 +14.4/60./60.)
 
 # DECIMAL RA and DEC VALUES OF STAR NEAR HE0435-1223
 #ra = (4.+38./60.+14.44/60./60.)/24*360
@@ -109,8 +109,8 @@ filename_table = ascii.read('t_ord_image_stats.dat')
 #dec = -12. - (16./60 +37.0/60./60.)
 
 # DECIMAL RA and DEC VALUES OF STAR NEAR HE0435-1223
-#ra = (4.+38./60.+12.97/60./60.)/24*360
-#dec = -12. - (17./60 +51.7/60./60.)
+ra = (4.+38./60.+12.97/60./60.)/24*360
+dec = -12. - (17./60 +51.7/60./60.)
 
 # DECIMAL RA and DEC VALUES OF STAR WITH SIMILAR MAGNITUDE TO HE0435-1223
 ra = (4.+38./60.+02.86/60./60.)/24*360
@@ -136,7 +136,7 @@ for n in range(0,len(filename_table['filename'])):
   mjd_start = 57008.  
   if(filename_table['mjd'][n]< mjd_start):
 	continue
-  if(n==160): break
+  if(n==60): break
 
   # INITIALIZE THE CUSTOMIZED FITS FILE MANAGER
   FM = FITSmanager(dirc+fnm)
@@ -168,10 +168,11 @@ for n in range(0,len(filename_table['filename'])):
   	random_APASS_index = np.random.randint(0,len(APASS_table['decdeg']))
   	while(random_APASS_index in APASS_rejects):
     		random_APASS_index = np.random.randint(0,len(APASS_table['decdeg']))
-  obj = SourceImage(FM, APASS_table['radeg'][random_APASS_index], APASS_table['decdeg'][random_APASS_index], 30)
+
 
   t_obs = filename_table['mjd'][n]-mjd_start
 
+  obj = SourceImage(FM, APASS_table['radeg'][random_APASS_index], APASS_table['decdeg'][random_APASS_index], 30)  
   figure(3, figsize=(7,12))
   m, m_err = get_peak_magnitude(obj, N_bkg, sigma_read, ZP_mean, ZP_rms)
   # INTERMEDIATE STEPS ADDED HERE FOR DISPLAY
@@ -199,12 +200,11 @@ for n in range(0,len(filename_table['filename'])):
 
   subplot(613)
   errorbar([t_obs], [m_pk1],yerr=[m_err1],fmt='o', color=col)
-  ylabel(r'$m_{I}=-2.5 log_{10}((N_{pk}-N_{bkg})/t)$')
+  ylabel(r'$m_{I}$')
 
   subplot(614)
   errorbar([t_obs], [ZP_mean],yerr=[ZP_rms],fmt='o', color=col)
-  ylabel(r'Zero Point')
-
+  ylabel(r'Zero Point Mag.')
   if(obj.FM.hdulist[0].header['FILTER'] == 'rp'): 
 	  subplot(615)
 	  errorbar([t_obs],[m],yerr=[m_err],fmt='o', color=col)
@@ -222,11 +222,61 @@ for n in range(0,len(filename_table['filename'])):
   xlabel('Days since mjd %1.0f'%mjd_start)
   subplots_adjust(hspace=0.6, left=0.15, right=0.95, top=0.95, bottom=0.05)
 
+  ###################################################################################
+  obj = SourceImage(FM, ra, dec, 30)  
+  figure(4, figsize=(7,12))
+  m, m_err = get_peak_magnitude(obj, N_bkg, sigma_read, ZP_mean, ZP_rms)
+  # INTERMEDIATE STEPS ADDED HERE FOR DISPLAY
+  pk0 = np.max(obj.image)
+  err0 = sqrt(pk0 + (sigma_read)**2)
+  pk1 = pk0 - N_bkg
+  m_pk1 = -2.5*log10(pk1/t)
+  err1 = err0/t
+  m_err1 =  2.5/err0/log(10.)
+  m_pk2 = -2.5*log10(pk1/t) + ZP_mean 
+  m_err2 = sqrt(m_err1**2 + ZP_rms**2 )
+
+  col = 'red'
+  if(obj.FM.hdulist[0].header['FILTER'] == 'gp'): col='green'
+  ax = subplot(611)
+  ax.set_yscale('log')
+  title('Star ra: %1.3f dec: %1.3f'%(ra,dec))
+  errorbar([t_obs],[N_bkg],yerr=[sqrt(N_bkg+sigma_read**2)],fmt='s', color=col, label='QSR peak')
+  errorbar([t_obs],[pk0],yerr=[err0],fmt='*', color=col, label='Background')
+  ylabel('Raw Counts')
+
+  subplot(612)
+  errorbar([t_obs], [pk1],yerr=[err0],fmt='o', color=col)
+  ylabel('$N_{pk}-N_{bkg}$,\nRaw Counts')
+
+  subplot(613)
+  errorbar([t_obs], [m_pk1],yerr=[m_err1],fmt='o', color=col)
+  ylabel(r'$m_{I}$')
+
+  subplot(614)
+  errorbar([t_obs], [ZP_mean],yerr=[ZP_rms],fmt='o', color=col)
+  ylabel(r'Zero Point Mag.')
+  if(obj.FM.hdulist[0].header['FILTER'] == 'rp'): 
+	  subplot(615)
+	  errorbar([t_obs],[m],yerr=[m_err],fmt='o', color=col)
+  if(obj.FM.hdulist[0].header['FILTER'] == 'gp'): 
+	  subplot(616)
+	  errorbar([t_obs],[m],yerr=[m_err],fmt='o', color=col)
+  print val, err_val
+  ylabel(r'Peak mag.')
+  xlabel('Days since mjd %1.0f'%mjd_start)
+  subplots_adjust(hspace=0.6, left=0.15, right=0.95, top=0.95, bottom=0.05)
 
   # GET THE QUASAR IMAGE
-  obj = SourceImage(FM, ra, dec, 30)
+  obj = SourceImage(FM, ra_qsr, dec_qsr, 30)
   m, m_err = get_peak_magnitude(obj, N_bkg, sigma_read, ZP_mean, ZP_rms)
 
+  '''
+  if(n==50):
+	figure()
+	plt.imshow(obj.image)
+	plt.show()
+  '''
   # INTERMEDIATE STEPS ADDED HERE FOR DISPLAY
   pk0 = np.max(obj.image)
   err0 = sqrt(pk0 + (sigma_read)**2)
@@ -254,7 +304,7 @@ for n in range(0,len(filename_table['filename'])):
 
   subplot(513)
   errorbar([t_obs], [m_pk1],yerr=[m_err1],fmt='o', color=col)
-  ylabel(r'$m_{I}=-2.5 log_{10}((N_{pk}-N_{bkg})/t)$')
+  ylabel(r'$m_{I}$')
 
   subplot(514)
   errorbar([t_obs], [ZP_mean],yerr=[ZP_rms],fmt='o', color=col)
@@ -278,6 +328,16 @@ xlabel('APASS Sloan_g Magnitude')
 ylabel(r'$m_{APASS} \ + \  2.5 log_{10}(N_{CCD}/t)$', fontsize=14)
 
 figure(3)
+subplot(613)
+gca().invert_yaxis()
+subplot(614)
+gca().invert_yaxis()
+subplot(615)
+gca().invert_yaxis()
+subplot(616)
+gca().invert_yaxis()
+
+figure(4)
 subplot(613)
 gca().invert_yaxis()
 subplot(614)
