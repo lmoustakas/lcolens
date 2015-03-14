@@ -9,6 +9,8 @@ from wcsaxes import WCSAxes
 import aplpy
 import pylab as plt
 import scipy.optimize as opt
+from scipy.optimize import minimize
+
 
 def time_order_fits_files(data_dir):
 	# GET ALL DATA FILE NAMES IN DATA DIRECTORY AND SORT THEM BY MJD
@@ -88,10 +90,13 @@ class FITSmanager:
     ylabel='Declination (J2000)'
     
   def image_piece(self,ra, dec, pixels):
-    if(pixels%2!=0):
-      pixels+=1
     x,y = self.bigw.wcs_world2pix(ra,dec,1)
-    zoom_data = self.image_data[y-pixels/2:y+pixels/2,x-pixels/2:x+pixels/2]
+    if(pixels%2==0):
+	    #print 'even'
+	    zoom_data = self.image_data[y-pixels/2:y+pixels/2,x-pixels/2:x+pixels/2]
+    if(pixels%2==1):
+	    #print 'odd'
+	    zoom_data = self.image_data[y-(pixels-1)/2:y+(pixels-1)/2+1,x-(pixels-1)/2:x+(pixels-1)/2+1]
     return zoom_data
     #plt.figure()
 
@@ -325,6 +330,40 @@ def make_background_counts_and_read_noise_table():
 
   ascii.write([filename_table['filename'], filename_table['mjd'], N_bkg, sigma_read], 'bkg_counts_and_read_noise.tbl', names=['filename', 'mjd', 'N_bkg', 'read_noise'])
 
+
+def gaussian((x, y), amp, sigx, sigy, ang, x0, y0):
+    # Precompute the sin and cos
+    spa = np.sin(ang / 180.0 * np.pi)
+    cpa = np.cos(ang / 180.0 * np.pi)
+    #print spa, cpa
+    # Define xprime coordinates in the rotated frame for convenience
+    # This uses a standard rotation matrix
+    xp = (x - x0) * cpa - (y - y0) * spa
+    yp = (x - x0) * spa + (y - y0) * cpa
+    # Defined r^2 (no need to take a square root)
+    r2 = xp * xp / sigx / sigx + yp * yp / sigy / sigy
+    return amp*np.exp(-r2*r2/2.)
+
+def triple_gaussian((x, y), amp1, sigx1, sigy1, ang1, xo1, yo1, amp2, sigx2, sigy2, ang2, xo2, yo2, amp3, sigx3, sigy3, ang3, xo3, yo3):
+	g1 = gaussian((x, y), amp1, sigx1, sigy1, ang1, xo1, yo1)
+	g2 = gaussian((x, y), amp2, sigx2, sigy2, ang2, xo2, yo2)
+	g3 = gaussian((x, y), amp3, sigx3, sigy3, ang3, xo3, yo3)
+	return g1 + g2 + g3
+
+def triple_gauss_chi2(parms, image, sig):
+	xg, yg = np.mgrid[:len(image), :len(image)]
+	model = triple_gaussian( (xg,yg,), *parms)
+	chi = (image-model)/sig
+	print np.sum(chi*chi), parms
+	return np.sum(chi*chi)
+
+def fitter(image, p0):
+    sig = np.sqrt(image)
+    results = minimize(triple_gauss_chi2, p0, args=(image, sig), method='Nelder-Mead')
+    print 'finished running minimize'
+    # return the best fit parameters
+    print results
+    return results.x
 #get_background_counts()
 #exit()
 
