@@ -10,6 +10,7 @@ import aplpy
 import pylab as plt
 import scipy.optimize as opt
 from scipy.optimize import minimize
+from scipy.optimize import leastsq
 
 
 def time_order_fits_files(data_dir):
@@ -159,7 +160,24 @@ class SourceImage:
     self.xg, self.yg = np.mgrid[:len(self.image), :len(self.image)]
     #popt, pcov = opt.curve_fit(twoD_Gaussian, (xg, yg), image.ravel(), p0=initial_guess)
     #popt, pcov = opt.curve_fit(twoD_Gaussian_simple, (xg, yg), image.ravel(), p0=initial_guess_simple)
-    popt, pcov = opt.curve_fit(twoD_Moffat, (self.xg, self.yg), self.image.ravel(), p0=self.initial_guess_moffat)
+    try:	
+      popt, pcov = opt.curve_fit(twoD_Moffat, (self.xg, self.yg), self.image.ravel(), p0=self.initial_guess_moffat)
+    except:
+      #maskval = np.sqrt((3.*np.sqrt(N_bkg))**2 + sigma_read**2)
+      #Hmasked  = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image-N_bkg)
+      Hmasked2 = np.ma.masked_where( (self.xg-15)**2 + (self.yg-15)**2 > 200,self.image)
+      self.image = Hmasked2.copy()
+      #estimate = np.sum(Hmasked)
+      popt, pcov = opt.curve_fit(twoD_Moffat, (self.xg, self.yg), self.image.ravel(), p0=self.initial_guess_moffat)
+
+      print 'fail'
+      plt.figure()
+      plt.subplot(221)
+      plt.imshow(self.image, interpolation='none')
+      plt.subplot(222)
+      plt.imshow(Hmasked2, interpolation='none')
+      #plt.show()
+
     if(verbose): print popt
     
     self.moffat_fit_image = twoD_Moffat((self.xg, self.yg), *popt).reshape(len(self.image),len(self.image))
@@ -366,4 +384,48 @@ def fitter(image, p0):
     return results.x
 #get_background_counts()
 #exit()
+
+def quad_image_model(theta, N_bkg, N_pix, flip):
+    print len(theta), N_bkg, N_pix
+    x0, y0,     \
+    amplitude0, \
+    amplitude1, \
+    amplitude2, \
+    amplitude3, alpha, beta = theta
+
+    # NEED A GOOD MODEL HERE
+    scale = 1.2
+    x1 = 14.3*scale + x0
+    y1 = 13.2*scale + y0
+    x2 = 15.6*scale + x0
+    y2 = 18.4*scale + y0
+    x3 = 13.1*scale + x0
+    y3 = 16.4*scale + y0
+    x4 = 17.6*scale + x0
+    y4 = 15.3*scale + y0
+    
+
+    xg, yg = np.mgrid[:N_pix,:N_pix]
+
+    #print x0,y0, amplitude0
+    p0  =  twoD_Moffat((xg, yg), amplitude0, alpha, beta, x1, y1, 0)
+    p1  =  twoD_Moffat((xg, yg), amplitude1, alpha, beta, x2, y2, 0)
+    p2  =  twoD_Moffat((xg, yg), amplitude2, alpha, beta, x3, y3, 0)
+    p3  =  twoD_Moffat((xg, yg), amplitude3, alpha, beta, x4, y4, 0)
+    model = (p0+p1+p2+p3).reshape(N_pix, N_pix)
+    if(flip):
+    	model = np.fliplr(model)
+    model+=N_bkg
+    return model
+
+def moffat_chi(theta, image,N_bkg,N_pix, flip):
+    model = quad_image_model(theta, N_bkg, N_pix, flip)
+
+    chi = (image - model)/np.sqrt(image)
+    print np.sum(chi*chi)
+    return chi
+
+def moffat_chi_sq(theta, image, N_bkg,N_pix, flip):
+	return np.sum((moffat_chi(theta, image, N_bkg,N_pix, flip))**2)
+
 

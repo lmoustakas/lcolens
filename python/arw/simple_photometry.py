@@ -2,10 +2,11 @@ from AnalysisLibrary import *
 from pylab import *
 import datetime
 from fitstars import *
+from scipy.ndimage.interpolation import shift
 
 rcParams['figure.facecolor']='white'
 
-# SUPER CRUDE PHOTOMETRY
+# NOT SO CRUDE PHOTOMETRY
 
 # 1. Read APASS Catalogue
 # 2. Loop through data
@@ -20,11 +21,12 @@ rcParams['figure.facecolor']='white'
 #    g. correct the values to magnitudes
 #    h. derive time-series with root N errors.
 
+
 def estimate_total_light(obj, N_bkg, sigma_read, display=False):
   estimate = np.sum(obj.image -  N_bkg)
   uncertainty = np.sqrt(np.sum(obj.image**2)) 
   maskval = np.sqrt((3.*np.sqrt(N_bkg))**2 + sigma_read**2)
-  Hmasked = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image-N_bkg)
+  Hmasked  = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image-N_bkg)
   Hmasked2 = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image)
   estimate = np.sum(Hmasked)
   uncertainty = np.sqrt(np.sum(Hmasked2))
@@ -57,6 +59,42 @@ def estimate_total_light(obj, N_bkg, sigma_read, display=False):
 def magnitude(value):
   return -2.5*log10(value)
 
+def PSFmodel(PSF, x,y,amp):
+	print 'in PSFmodel'
+	print x,y,amp
+	print PSF.shape
+	#print PSF
+	model = amp*shift(PSF, (x,y), output=None, order=1, mode='constant', cval=0.0, prefilter=True)
+	model = np.ma.masked_where(model<=0,model)
+	return model
+
+def PSFchi(_parms, _image, _sig, _PSF):
+	print 'in PSFchi'
+	print _image.shape
+	print _PSF.shape
+        x = np.random.uniform(-10.,10.)
+        y = np.random.uniform(-10.,10.)
+	model = PSFmodel(_PSF, _parms[0], _parms[1], _parms[2])
+        #print sig
+	if(_parms[2]<=0.):
+		return 1.e20
+	print np.sum(((_image-model)/_sig)**2), _parms
+	return np.sum(((_image-model)/_sig)**2)
+
+def fitter(_image,_sig, _p0, _PSF):
+    print 'starting fitter'
+    print _image.shape
+    print _p0
+
+    results = minimize(PSFchi, _p0, args=(_image, _sig, _PSF), method='Nelder-Mead')
+    #results = minimize(PSFchi, _p0, args=(_image, _sig, _PSF))
+    print 'finished running minimize'
+    # return the best fit parameters
+    print 'results'
+    print results
+    print 'results.x', results.x
+    return results.x
+
 def APASS_zero_points(FM, APASS_table, APASS_rejects, display=False):
   # KEEP TRACK OF WHICH BAND THE IMAGES ARE AND USE THE CORRESPONDING APASS REFERENCE VALUES.
   filt = 'Sloan_r'
@@ -69,10 +107,82 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, display=False):
   m_I     = []
   m_APASS_unc = []
   m_I_unc     = []
+
+  # ESTIMATE PSF FROM THE DATA
+  obj = SourceImage(FM, APASS_table['radeg'][0], APASS_table['decdeg'][0], 31)
+  maskval = np.sqrt((10.*np.sqrt(N_bkg))**2 + sigma_read**2)
+  Hmasked = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image-N_bkg)
+  PSF = obj.image-np.median(obj.image)
+  PSF = np.ma.masked_where((obj.image-N_bkg)<maskval,PSF)
+  #PSF/= np.sum(PSF)
+  plt.figure()
+  plt.subplot(221)
+  plt.imshow(np.ma.masked_where(PSF<np.median(PSF),PSF), interpolation='none')
+  plt.colorbar()
+  plt.subplot(222)
+  plt.imshow(np.log10(np.abs(np.fft.fftshift(np.fft.fft2(PSF)))), interpolation='none')
+  plt.colorbar()
+  #shift(input, shift, output=None, order=3, mode='constant', cval=0.0, prefilter=True)
+  #PSF_shift = shift(PSF, (-6.7,3.2), output=None, order=3, mode='constant', cval=0.0, prefilter=True)
+  PSF_shift = PSFmodel(PSF,-6.7,3.2,1.)
+  obj = SourceImage(FM, APASS_table['radeg'][0], APASS_table['decdeg'][0], 31)
+  #PSF_shift = np.ma.masked_where(PSF_shift<np.median(PSF_shift),PSF_shift)
+  plt.subplot(223)
+  plt.imshow(PSF_shift, interpolation='none')
+  plt.colorbar()
+
+
+  obj = SourceImage(FM, APASS_table['radeg'][12], APASS_table['decdeg'][12], 31)
+  img = obj.image - np.median(obj.image)
+  amp0 = np.sum(img)
+  x_max, y_max = np.unravel_index(img.argmax(), img.shape)
+  PSFx_max, PSFy_max = np.unravel_index(PSF.argmax(), PSF.shape)
+  p0 = [x_max-PSFx_max,y_max-PSFy_max,amp0]
+  sig=np.sqrt(obj.image)
+  fitParms = fitter(img,sig, p0, PSF)
+  fitParms = fitter(img,sig, fitParms, PSF)
+  #fitParms = fitter(img,sig, p0, PSF)
+
+  print 'fitParms', fitParms
+  print 'bkg', np.median(obj.image)
+  pt = [ 0., 0., 1.47916274e+06]
+  m = PSFmodel(PSF,*fitParms)
+  #m = PSFmodel(PSF,*p0)
+  #m = PSFmodel(PSF,*pt)
+  print 'by hand', PSFchi(fitParms,img,sig,PSF)
+  plt.figure()
+  plt.subplot(221)
+  plt.imshow(m, interpolation='none')
+  plt.colorbar()
+  plt.title('model')
+  
+  plt.subplot(222)
+  plt.imshow(img, interpolation='none')
+  plt.colorbar()
+  levels=np.arange(np.min(m), np.max(m), (np.max(m)-np.min(m))/10 )
+  plt.contour(m, colors='k', levels=levels)
+  plt.title('Bkg subtracted data w/ model contour')
+
+  plt.subplot(223)
+  v = np.max(np.abs(img-m))
+  plt.imshow(img-m,cmap='seismic',interpolation='none', vmin = -v, vmax=v)
+  print PSFchi(fitParms,img,sig,PSF)
+  plt.colorbar()
+  plt.contour(m, colors='k')
+  #plt.contour(PSF, colors='k')
+
+  plt.subplot(224)
+  v = np.max((img-m)/sig)
+  plt.imshow((img-m)/sig,cmap='seismic',interpolation='none', vmin = -v, vmax=v)
+  plt.colorbar()
+  plt.contour(m, colors='k')
+  plt.show()
+
   for k in range(0,len(APASS_table)):
     if(APASS_table[filt][k]!='NA' and APASS_table[filt_err][k]!='0' and k not in APASS_rejects): 
 	print 'APASS', k
 	obj = SourceImage(FM, APASS_table['radeg'][k], APASS_table['decdeg'][k], 31)
+	
 	intg, intg_unc = estimate_total_light(obj,N_bkg, sigma_read, display=False)
 	m_I.append(magnitude(intg))
 	m_APASS.append(float(APASS_table[filt][k]))
@@ -257,7 +367,7 @@ for n in range(0,len(filename_table['filename'])):
 
   t_obs = filename_table['mjd'][n]-mjd_start
   random_APASS_index=5
-  obj = SourceImage(FM, APASS_table['radeg'][random_APASS_index], APASS_table['decdeg'][random_APASS_index], 30)  
+  obj = SourceImage(FM, APASS_table['radeg'][random_APASS_index], APASS_table['decdeg'][random_APASS_index], 31)  
   figure(3, figsize=(7,12))
   photometry_plot(obj,N_bkg,sigma_read, ZP_mean, ZP_rms)
   # ADD PHOTOMETRIC ESTIMATES FROM APASS SOURCE
@@ -272,7 +382,7 @@ for n in range(0,len(filename_table['filename'])):
   errorbar([t_obs], [val], yerr=[err_val], fmt='_', color='gray', linewidth=10, alpha=0.3)
 
   ###################################################################################
-  obj = SourceImage(FM, ra, dec, 30)  
+  obj = SourceImage(FM, ra, dec, 31)  
   figure(4, figsize=(7,12))
   photometry_plot(obj,N_bkg,sigma_read, ZP_mean, ZP_rms)
   '''
@@ -284,7 +394,7 @@ for n in range(0,len(filename_table['filename'])):
   '''
 
   # GET THE QUASAR IMAGE
-  obj = SourceImage(FM, ra_qsr, dec_qsr, 30)
+  obj = SourceImage(FM, ra_qsr, dec_qsr, 31)
   intg, intg_unc = estimate_total_light(obj,N_bkg, sigma_read, display=False)
 
   figure(5, figsize=(7,12))
