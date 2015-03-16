@@ -54,11 +54,13 @@ if __name__ == "__main__":
     APASS_alpha = alpha_mean
     APASS_beta  = beta_mean
 
+    outFileTag = args.outputFileTag
     mjd_obs = float(FM.hdulist[0].header['MJD-OBS'])
     # INCLUDE ALL APASS FIT RESULTS, alpha, beta, chiSq, maxChi
     # SAVE RESULTS TO AN NPZ FILE
     np.savez(npz_out, 
-	inputFile = inputFile, 
+	inputFile = inputFile,
+	outFileTag = outFileTag, 
 	mjd_obs = mjd_obs,
 	readnoise = readnoise, 
 	ZP_mean = ZP_mean, 

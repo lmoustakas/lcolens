@@ -38,6 +38,8 @@ for k in range(0,len(fnames)):
 	me4.append(results['me4'])
 	maxChi.append(results['maxChi'])
 	chiSq.append(results['chiSq'])
+        if results['chiSq'] > 3.:
+		print k, results['chiSq'], results['inputFile']
 	if k==0:
 		print results.files
 
