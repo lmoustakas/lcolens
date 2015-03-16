@@ -48,6 +48,6 @@ if __name__ == "__main__":
     print ZP_mean, ZP_rms, alpha_mean, beta_mean
 
     quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha_mean, beta_mean, npxls)
-
+    #plt.show()
 
 

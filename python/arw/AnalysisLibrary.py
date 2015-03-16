@@ -790,7 +790,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px):
   plt.figure()
   plt.hist(chi_vals.flat)
 
-  plt.show()
+  #plt.show()
   #figure()
   #hist(chi_vals)
   #show()
