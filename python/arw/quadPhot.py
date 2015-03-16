@@ -34,7 +34,7 @@ if __name__ == "__main__":
     npxls = 31
     # INITIALIZE THE CUSTOMIZED FITS FILE MANAGER
     FM = FITSmanager(inputFile)
-
+ 
     # PLOT QSR IMAGE
     FM.plot_image(ra_qsr, dec_qsr, Npx=npxls, out = args.outputFileTag+'_qsr')
 
@@ -47,7 +47,35 @@ if __name__ == "__main__":
     ZP_mean, ZP_rms, alpha_mean, beta_mean = APASS_zero_points(FM, APASS_table, APASS_rejects, FM.readnoise, display=False)
     print ZP_mean, ZP_rms, alpha_mean, beta_mean
 
-    quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha_mean, beta_mean, npxls)
-    #plt.show()
+    m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha_mean, beta_mean, npxls)
+    
+    npz_out = args.outputFileTag + '_results.npz'
+    readnoise = FM.readnoise
+    APASS_alpha = alpha_mean
+    APASS_beta  = beta_mean
+
+    t_obs = float(hdulist[0].header['MJD-OBS'])
+    # INCLUDE ALL APASS FIT RESULTS, alpha, beta, chiSq, maxChi
+    # SAVE RESULTS TO AN NPZ FILE
+    np.savez(npz_out, 
+	inputFile = inputFile, 
+	mjd_obs = mjd_obs,
+	readnoise = readnoise, 
+	ZP_mean = ZP_mean, 
+	ZP_rms = ZP_rms, 
+	APASS_alpha = APASS_alpha,
+	APASS_beta = APASS_beta,
+	m1 = m1,
+	me1 = me1,
+	m2 = m2,
+	me2 = me2,
+	m3 = m3,
+	me3 = me3,
+	m4 = m4,
+	me4 = me4,
+	chiSq = chiSq,
+	maxChi = maxChi
+	)
+    # plt.show()
 
 

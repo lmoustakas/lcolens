@@ -15,10 +15,10 @@ for n in range(0, len(filename_table['filename'])):
 	continue
   if(n in qsr_reject_list):
 	continue
-  '''
+  #'''
   if(n>40):
 	continue
-  '''
+  #'''
   num='%d'%n
   if(n<10):
 	num='00%s'%n
@@ -29,4 +29,4 @@ for n in range(0, len(filename_table['filename'])):
 
   print '\nimage_%s %s'%(num,filename_table['filename'][n])
   os.system('./quadPhot.py -i %s -o image_%s'%(filename_table['filename'][n], num))
-
+  

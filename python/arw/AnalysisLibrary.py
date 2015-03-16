@@ -734,7 +734,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px):
   me3 = np.sqrt(e3**2 + ZP_rms**2 )
   me4 = np.sqrt(e4**2 + ZP_rms**2 )
 
-  print m1,me1, m2,me2, m3, me3, m4, me4
+  #print m1,me1, m2,me2, m3, me3, m4, me4
 
   
   plt.figure(figsize=(12, 12)) 
@@ -790,6 +790,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px):
   plt.figure()
   plt.hist(chi_vals.flat)
 
+  return m1, me1, m2, me2, m3, me3, m4, me4, np.sum(chi_vals**2)/(len(chi_vals)-len(results.x)), np.max(np.abs(chi_vals))
   #plt.show()
   #figure()
   #hist(chi_vals)
