@@ -47,14 +47,14 @@ if __name__ == "__main__":
     ZP_mean, ZP_rms, alpha_mean, beta_mean = APASS_zero_points(FM, APASS_table, APASS_rejects, FM.readnoise, display=False)
     print ZP_mean, ZP_rms, alpha_mean, beta_mean
 
-    m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha_mean, beta_mean, npxls)
+    m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha_mean, beta_mean, npxls, outputFileTag=args.outputFileTag)
     
     npz_out = args.outputFileTag + '_results.npz'
     readnoise = FM.readnoise
     APASS_alpha = alpha_mean
     APASS_beta  = beta_mean
 
-    t_obs = float(hdulist[0].header['MJD-OBS'])
+    mjd_obs = float(FM.hdulist[0].header['MJD-OBS'])
     # INCLUDE ALL APASS FIT RESULTS, alpha, beta, chiSq, maxChi
     # SAVE RESULTS TO AN NPZ FILE
     np.savez(npz_out, 

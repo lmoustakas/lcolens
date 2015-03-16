@@ -298,13 +298,8 @@ class SourceImage:
     #plt.ylim(-15.,15.)
     #plt.xlabel('Pixel Distance from Fitted Peak')
     plt.xlabel(r'$\chi_p$')
-  def quad_image_model(self, theta, N_bkg, N_pix, flip):
+  def quad_image_model(self, x0, y0, amp0, amp1, amp2, amp3, alpha, beta, N_bkg, N_pix, flip):
     #print len(theta), N_bkg, N_pix
-    x0, y0,     \
-    amplitude0, \
-    amplitude1, \
-    amplitude2, \
-    amplitude3, alpha, beta = theta
 
     # NEED A GOOD MODEL HERE
     scale = 0.99*0.467/self.FM.hdulist[0].header['PIXSCALE']
@@ -330,26 +325,39 @@ class SourceImage:
 
     xg, yg = np.mgrid[:N_pix,:N_pix]
 
-    #print x0,y0, amplitude0
-    p0  =  twoD_Moffat((xg, yg), amplitude0, alpha, beta, x1, y1, 0)
-    p1  =  twoD_Moffat((xg, yg), amplitude1, alpha, beta, x2, y2, 0)
-    p2  =  twoD_Moffat((xg, yg), amplitude2, alpha, beta, x3, y3, 0)
-    p3  =  twoD_Moffat((xg, yg), amplitude3, alpha, beta, x4, y4, 0)
+    #print x0,y0, amp0
+    p0  =  twoD_Moffat((xg, yg), amp0, alpha, beta, x1, y1, 0)
+    p1  =  twoD_Moffat((xg, yg), amp1, alpha, beta, x2, y2, 0)
+    p2  =  twoD_Moffat((xg, yg), amp2, alpha, beta, x3, y3, 0)
+    p3  =  twoD_Moffat((xg, yg), amp3, alpha, beta, x4, y4, 0)
     model = (p0+p1+p2+p3).reshape(N_pix, N_pix)
     if(flip):
     	model = np.fliplr(model)
     model+=N_bkg
     return model
 
-  def moffat_chi_vals(self,theta,N_bkg,N_pix, flip):
-    model = self.quad_image_model(theta, N_bkg, N_pix, flip)
-
-    chi = (self.image - model)/np.sqrt(self.image)
+  def moffat_chi_vals(self,theta,N_pix, flip):
+    x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg = theta
+    model = self.quad_image_model(x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, N_pix, flip)
+    chi = (self.image - model)/np.sqrt(self.image+self.FM.readnoise**2)
     #print np.sum(chi*chi)
     return chi
 
-  def moffat_chi_sq(self, theta, N_bkg,N_pix, flip):
-	return np.sum((self.moffat_chi_vals(theta, N_bkg,N_pix, flip))**2)
+  def moffat_chi_sq(self, theta, N_pix, flip):
+	return np.sum((self.moffat_chi_vals(theta, N_pix, flip))**2)
+
+  def moffat_chi_vals2(self,theta,alpha, beta,N_pix, flip):
+    x0,y0,amp0,amp1,amp2,amp3, N_bkg = theta
+    model = self.quad_image_model(x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, N_pix, flip)
+
+    chi = (self.image - model)/np.sqrt(self.image+self.FM.readnoise**2)
+    #print 'self.FM.readnoise', self.FM.readnoise
+    #print np.sum(chi*chi)
+    return chi
+
+  def moffat_chi_sq2(self, theta, alpha, beta, N_pix, flip):
+	return np.sum((self.moffat_chi_vals2(theta, alpha, beta, N_pix, flip))**2)
+
 
 ###############################################################################
 ## END CLASS DEFINITIONS ######################################################
@@ -653,7 +661,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=False)
   return ZP_mean, ZP_rms, alpha_mean, beta_mean
 
 
-def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px):
+def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileTag='out'):
   # GET THE QUASAR IMAGE
   obj = SourceImage(FM, ra_qsr, dec_qsr, N_px)
 
@@ -675,9 +683,8 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px):
   amp2 = amp_scale/1.5
   amp3 = amp_scale/2.
   # DEFINE ARRAY OF INPUT PARAMETERS
-  theta = [x0,y0,amp0,amp1,amp2,amp3, alpha, beta]
   # PRODUCE A MODELED IMAGE
-  qim = obj.quad_image_model(theta, N_bkg, len(obj.image), fl)
+  qim = obj.quad_image_model(x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, len(obj.image), fl)
   # CROSS CORRELATE THE DATA TO THE MODEL TO FIND OUT WHERE IT IS ON THE PIXEL GRID
   corr = signal.correlate2d(obj.image, qim, boundary='symm', mode='same')
   # GET THE LOCATION OF THE CORRELATION PEAK
@@ -695,21 +702,34 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px):
   amp1*=np.max(obj.image)/np.max(qim)
   amp2*=np.max(obj.image)/np.max(qim)
   amp3*=np.max(obj.image)/np.max(qim)
-  # PRODUCE THE PARAMETERS FOR THE MODEL IMAGE
-  theta2 = [x0,y0,amp0,amp1,amp2,amp3, alpha, beta]
   # PRODUCE THE MODEL IMAGE
-  qim2 = obj.quad_image_model(theta2, N_bkg, 31, fl)
+  qim2 = obj.quad_image_model(x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl)
+
+  # PRODUCE THE PARAMETERS FOR THE MODEL IMAGE
+  theta2 = [x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg]
+  #theta2 = [x0,y0,amp0,amp1,amp2,amp3, N_bkg]
+
   # ESTIMATE ITS DISTRIBUTION OF CHI VALUES
-  chi2 = obj.moffat_chi_vals(theta2, N_bkg,31, fl)
+  chi2 = obj.moffat_chi_vals(theta2, 31, fl)
+  #chi2 = obj.moffat_chi_vals2(theta2, alpha, beta,31, fl)
+
   # FIT A MODEL TO THE DATA
-  results = opt.minimize(obj.moffat_chi_sq, theta2,  args=(N_bkg, 31, fl), method='Nelder-Mead')
+  results = opt.minimize(obj.moffat_chi_sq, theta2,  args=(31, fl), method='Nelder-Mead')
+  #results = opt.minimize(obj.moffat_chi_sq2, theta2,  args=(alpha, beta, 31, fl), method='Nelder-Mead')
+
   # I FIND IT PAYS TO KEEP THE MINIMIZATION GOING FOR A FEW MORE ROUNDS
   for k in range(0,4):
-	results = opt.minimize(obj.moffat_chi_sq, results.x,  args=(N_bkg, 31, fl), method='Nelder-Mead')
+	results = opt.minimize(obj.moffat_chi_sq, results.x,  args=(31, fl), method='Nelder-Mead')
+	#results = opt.minimize(obj.moffat_chi_sq2, results.x,  args=(alpha, beta, 31, fl), method='Nelder-Mead')
   # GET THE FITTED IMAGE MODEL
-  qim3 = obj.quad_image_model(results.x, N_bkg, 31, fl)
+  x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg = results.x
+  #x0,y0,amp0,amp1,amp2,amp3, N_bkg = results.x
+  qim3 = obj.quad_image_model(x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl)
+
   # ESTIMATE ITS CHI VALUES, ITS PEAK CHI VALUE AND LOCATION ON THE MAP
-  chi_vals = obj.moffat_chi_vals(results.x, N_bkg,31, fl)
+  chi_vals = obj.moffat_chi_vals(results.x, 31, fl)
+  #chi_vals = obj.moffat_chi_vals2(results.x, alpha, beta,31, fl)
+
   chi_x_max, chi_y_max = np.unravel_index(np.abs(chi_vals).argmax(), chi_vals.shape)
   #print 'alpha, beta, N_bkg', alpha, beta, N_bkg
   #print 'max chi x,y, val', chi_x_max, chi_y_max, np.max(np.abs(chi_vals))
@@ -759,38 +779,51 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px):
   plt.title('initial model\nw/ data controur')
   plt.subplot(335)
   mv = np.max(np.abs(obj.image - qim2))
-  plt.imshow(obj.image - qim2, cmap='seismic', interpolation='none', vmin=-mv, vmax=mv)
+  plt.imshow(obj.image - qim2, cmap='jet', interpolation='none', vmin=-mv, vmax=mv)
   plt.colorbar()
   plt.contour(obj.image, colors='k')
   plt.title('initial model residuals')
   plt.subplot(336)
   mv = np.max(np.abs(chi2))
-  plt.imshow(chi2, cmap='seismic', interpolation='none', vmin=-mv, vmax=mv)
+  plt.imshow(chi2, cmap='jet', interpolation='none', vmin=-mv, vmax=mv)
   plt.colorbar()
   plt.contour(obj.image, colors='k')
   plt.subplot(337)
-  plt.imshow(qim3, interpolation='none')
+  plt.imshow(qim3, interpolation='none', vmin=np.min(obj.image), vmax=np.max(obj.image))
   plt.colorbar()
   plt.contour(obj.image, colors='k')
-  plt.title('fitted Model')
+  plt.title('fitted model \n w/ data contour')
   plt.subplot(338)
   mv = np.max(np.abs(obj.image - qim3))
-  plt.imshow(obj.image - qim3, cmap='seismic', interpolation='none', vmin=-mv, vmax=mv)
+  plt.imshow(obj.image - qim3, cmap='jet', interpolation='none', vmin=-mv, vmax=mv)
   plt.colorbar()
   plt.contour(obj.image, colors='k')
   plt.title('fitted model residuals')
   plt.subplot(339)
   mv = np.max(np.abs(chi_vals))
-  plt.imshow(chi_vals, cmap='seismic', interpolation='none', vmin=-mv, vmax=mv)
+  plt.imshow(chi_vals, cmap='jet', interpolation='none', vmin=-mv, vmax=mv)
   plt.colorbar()
   plt.contour(obj.image, colors='k')
   plt.plot([chi_y_max], [chi_x_max],'o', mfc='none', mec='k', mew=3, ms=15)
-  plt.title('fitted Model Chi Vals')
+  plt.title('fitted Model Chi vals')
+  plt.suptitle(obj.FM.fits_file_name.split('/')[-1],fontsize=20)
+  plt.savefig(outputFileTag+'_quadFit.png', dpi=50)
 
   plt.figure()
   plt.hist(chi_vals.flat)
+  plt.xlabel('chi values')
+  plt.ylabel('counts')
+  plt.suptitle(obj.FM.fits_file_name.split('/')[-1],fontsize=20)
+  plt.savefig(outputFileTag+'_quadFitChi.png', dpi=50)
+  #plt.savefig()
 
-  return m1, me1, m2, me2, m3, me3, m4, me4, np.sum(chi_vals**2)/(len(chi_vals)-len(results.x)), np.max(np.abs(chi_vals))
+  flat_chiVals = np.ravel(chi_vals)
+  chiSq= np.sum(flat_chiVals**2)/(len(flat_chiVals)-len(results.x))
+  #chiSq = np.sum(chi_vals.flat**2)/(len(chi_vals.flat)-len(results.x))
+  
+  #print chiSq
+  #exit()
+  return m1, me1, m2, me2, m3, me3, m4, me4, chiSq, np.max(np.abs(chi_vals))
   #plt.show()
   #figure()
   #hist(chi_vals)
