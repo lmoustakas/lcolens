@@ -1,0 +1,23 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (3/9 - 3/16)
+DATE: MARCH 16, 2015
+CC: ANDREW ROMERO-WOLF
+
+This past week I have been uncertain about how to contribute directly to our project.  I was present
+at the coding-push on Friday, but could not find a way to contribute to it.  I had started the week
+focused on Bayesian likelihood functions, so that I might be able to drop the functions that Andrew
+develops into emcee to estimate the uncertainties.  I can still try to do that.
+
+I know that we also want to estimate the background noise differently than Andrew has done so far.
+I have studied Andrew's code to understand how he initially estimated the background noise.  On the
+side (I know it is a small fraction of the total noise), I have continued to read about CCD noise.
+I found a very helpful article here:  http://www.ucolick.org/~bolte/AY257/s_n.pdf
+
+It has also been mentioned that I should help with using GalSim to fit the quasar and nearby stars.
+I re-read the GalSim article (Rowe et al., 2014) to better understand the various coordinate systems
+GalSim uses and how to convert from one to another (e.g., from WCS to pixels, and back).
+
+Finally, I have been learning how to use SAO DS9.  Astrobites has a nice introduction here:
+http://astrobites.org/2011/03/09/how-to-use-sao-ds9-to-examine-astronomical-images/
+And there is a User's Manual and a Reference Manual, which I have begun to look through.
