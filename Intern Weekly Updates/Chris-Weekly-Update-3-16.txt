@@ -1,0 +1,12 @@
+TO:	LEONIDAS MOUSTAKAS
+FROM:	CHRISTOPHER GONZALEZ
+SUBJECT:	WEEK 7/8 - WEEKLY UPDATE
+DATE:	March 16, 2015
+CC:	ANDREW ROMERO-WOLF
+
+During week 7 I was able to update my FWHM_all script to work with objects. It is now able to iterate over all files, read any header information, organize the data, and show relevant plots. This was done to get an idea of the FWHM and Chi^2 values for all observations, as well as figuring out how many of them lie beyond a particular threshold. This has also helped me find problematic observations that require individual attention.
+
+During week 8 I followed up with a few of Andrew's requests for investigative work. I discovered that the gain parameters for all lsc observations were set to 1.0, while all other observations from cpt and coj were set to 1.4. Curtis has said the headers themselves may not have been updated, but the data itself has been adjusted to take this into account. We are still waiting for Curtis to follow up on this. I also identified 28 observations that were causing problems during analysis, these 28 observations caused Python to timeout during Moffat fitting. The 28 observations are listed in the Reference folder in the file Problematic Images.csv The last thing I did for Andrew was take a look at three APASS stars that were also causing issues, it was noted that one of the APASS stars was near the edge of our field of view. The other two APASS sources Andrew noted were determined to be galaxies and may be the source of issues.
+
+For this next week, I am trying to complete a more comprehensive report for the problematic images. This will identify which observations need to be removed because the lens cap was on, or need to be touched up because of cosmic rays near our source.
+
