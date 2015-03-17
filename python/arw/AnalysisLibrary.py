@@ -14,8 +14,6 @@ from scipy.optimize import leastsq
 import matplotlib
 from scipy import signal
 
-
-
 def time_order_fits_files(data_dir):
 	# GET ALL DATA FILE NAMES IN DATA DIRECTORY AND SORT THEM BY MJD
 	print 'READING THE FITS FILE OBSERVATION TIMES FOR ORDERING PURPOSES'
