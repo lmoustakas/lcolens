@@ -1,5 +1,6 @@
 import numpy as np
 from pylab import *
+from astropy.io import ascii
 import glob
 
 rcParams['font.size']=14
@@ -61,6 +62,31 @@ for k in range(0,len(fnames)):
 		print results.files
 
 mjd_obs = array(mjd_obs)
+m1 = array(m1)
+m2 = array(m2)
+m3 = array(m3)
+m4 = array(m4)
+me1 = array(me1)
+me2 = array(me2)
+me3 = array(me3)
+me4 = array(me4)
+err_array = np.concatenate([me1, me2, me3, me4])
+maxChi=array(maxChi)
+chiSq=array(chiSq)
+#figure()
+#plot(maxChi, '.')
+#show()
+err_cut = 0.15
+cut12   = np.logical_and(me2<err_cut, me1<err_cut)
+cut123  = np.logical_and(me3<err_cut, cut12)
+cut1234 = np.logical_and(me4<err_cut, cut123)
+cut = np.logical_and(maxChi<5.,cut1234)
+
+print len(mjd_obs)
+print len(mjd_obs[cut])
+ascii.write([mjd_obs[cut], m1[cut], me1[cut], m2[cut], me2[cut], m3[cut], me3[cut], m4[cut], me4[cut]], 'he0435-1223_lcogt_magnitudes.dat', names=['mjd', 'mag_A', 'magerr_A', 'mag_B', 'magerr_B', 'mag_C', 'magerr_C', 'mag_D', 'magerr_D'] )
+
+mjd_obs = array(mjd_obs)
 mjd0 = np.floor(np.min(mjd_obs))
 
 mx = max([max(m1), max(m2), max(m3), max(m4)])+0.2
@@ -114,7 +140,8 @@ ylabel('Zero Point, magnitude')
 
 figure(figsize=(8,18))
 ax1 = subplot(511)
-errorbar(mjd_obs - mjd0, m1, yerr=me1, fmt='o', color='k')
+#errorbar(mjd_obs - mjd0, m1, yerr=me1, fmt='o', color='k')
+errorbar(mjd_obs[cut] - mjd0, m1[cut], yerr=me1[cut], fmt='o', color='k')
 gca().invert_yaxis()
 grid(True, which="both")
 ylabel('image 1 magnitude')
@@ -122,7 +149,8 @@ ylim(30.,0.)
 #ylim(mx,mn)
 
 subplot(512, sharex=ax1, sharey=ax1)
-errorbar(mjd_obs - mjd0, m2, yerr=me2, fmt='ko', color='b')
+#errorbar(mjd_obs - mjd0, m2, yerr=me2, fmt='ko', color='b')
+errorbar(mjd_obs[cut] - mjd0, m2[cut], yerr=me2[cut], fmt='ko', color='b')
 gca().invert_yaxis()
 ylim(30.,0.)
 #ylim(mx,mn)
@@ -130,7 +158,8 @@ grid(True, which="both")
 ylabel('image 2 magnitude')
 
 subplot(513, sharex=ax1, sharey=ax1)
-errorbar(mjd_obs - mjd0, m3, yerr=me3, fmt='ko', color='r')
+#errorbar(mjd_obs - mjd0, m3, yerr=me3, fmt='ko', color='r')
+errorbar(mjd_obs[cut] - mjd0, m3[cut], yerr=me3[cut], fmt='ko', color='r')
 gca().invert_yaxis()
 ylim(30.,0.)
 #ylim(mx,mn)
@@ -138,7 +167,8 @@ grid(True, which="both")
 ylabel('image 3 magnitude')
 
 subplot(514, sharex=ax1, sharey=ax1)
-errorbar(mjd_obs - mjd0, m4, yerr=me4, fmt='ko', color='g')
+#errorbar(mjd_obs - mjd0, m4, yerr=me4, fmt='ko', color='g')
+errorbar(mjd_obs[cut]- mjd0, m4[cut], yerr=me4[cut], fmt='ko', color='g')
 gca().invert_yaxis()
 ylim(30.,0.)
 #ylim(mx,mn)
@@ -147,8 +177,10 @@ ylabel('image 4 magnitude')
 
 ax=subplot(515, sharex=ax1)
 ax.set_yscale('log')
-plot(mjd_obs - mjd0, chiSq, 'bo', label='Chi Square')
-plot(mjd_obs - mjd0, maxChi, 'ro', label='Max. Chi Value')
+#plot(mjd_obs - mjd0, chiSq, 'bo', label='Chi Square')
+#plot(mjd_obs - mjd0, maxChi, 'ro', label='Max. Chi Value')
+plot(mjd_obs[cut] - mjd0, chiSq[cut], 'bo', label='Chi Square')
+plot(mjd_obs[cut] - mjd0, maxChi[cut], 'ro', label='Max. Chi Value')
 legend(loc=0, title='Quad. Fit Image', numpoints=1)
 xlabel('Days Since mjd %1.0f'%(mjd0))
 grid(True, which="both")
