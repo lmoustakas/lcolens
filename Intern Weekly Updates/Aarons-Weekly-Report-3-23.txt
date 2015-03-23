@@ -1,0 +1,36 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (3/16 - 3/23)
+DATE: MARCH 23, 2015
+CC: ANDREW ROMERO-WOLF
+
+As we discussed last Wednesday, I'll focus on modeling our field with GalSim.  The first obstacle
+has been overcome this week:  I finally figured out how to plot multiple objects in a single frame.
+
+I had been trying to create and place 'stamps' (smaller images) within a larger image.  But the
+stamps are not transparent, so when they overlap, the top stamp cuts a square corner out of the
+bottom stamp.  Lesson:  Stamps can be used to model non-overlapping objects, but they cannot be used
+to model our quad-lensed quasar or other objects in crowded fields.
+
+To model overlapping objects, you simply create two objects (one offset or shifted) and then add
+them together.  For example:
+
+# create a galaxy profile, gal_1
+# create a second galaxy profile, gal_2, with shift (dx,dy)
+# add them together:  gal_final = gal_1 + gal_2
+# draw the image, gal_final
+
+No stamps are involved in this process.
+
+To convolve these galaxy profiles with PSFs, you simple add the PSFs in the same way:
+
+# create psf_1 for gal_1
+# create psf_2 for gal_2 with shift (dx,dy)
+# add them together:  psf_final = psf_1 + psf_2
+
+Before drawing the image, convolve the galaxy profiles with the PSFs.
+
+# convolve gal_final, psf_final
+# draw the image
+
+THE NEXT STEP: place objects precisely according to WCS coordinates that have been read from a file.
