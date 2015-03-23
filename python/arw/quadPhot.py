@@ -19,6 +19,7 @@ if __name__ == "__main__":
     parser.add_argument("-i","--inputFile", default = 'lsc1m009-fl03-20141217-0042-e90.fits', help="directory with FITS file images",type=str)
     parser.add_argument("-o","--outputFileTag", default = 'out', help="directory with FITS file images",type=str)
     parser.add_argument("-p","--plots", default = 1, help="level of plot production",type=int)
+    parser.add_argument("-e","--emcee_level", default = 0, help="level of emcee fitting (0 none, 1 quad image, 2 quad image w/ photometry, 3 full set images w/ photometry",type=int)
     
     #KLUDGE TO GET ARGPARSE TO READ NEGATIVE VALUES
     for i, arg in enumerate(sys.argv):
@@ -86,6 +87,13 @@ if __name__ == "__main__":
 	chiSq = chiSq,
 	maxChi = maxChi
 	)
+
+    if(args.emcee_level==1):
+	emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha_mean, beta_mean, m1, m2, m3, m4, npxls, outputFileTag=args.outputFileTag)
+    if(args.emcee_level>1):
+	print 'YOU HAVE SELECTED A LEVEL OF EMCEE FITTING OF %d'%(args.emcee_level)
+	print 'THIS CAPABILITY HAS NOT YET BEEN DEVELOPED'
+	print 'THANK YOU FOR YOUR PATIENCE'
     # plt.show()
 
 
