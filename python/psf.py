@@ -68,9 +68,10 @@ def moffat_kernel(x0, y0, alpha, beta, q=1, posang=0.0, nx = 0, ny = 0, subsamp=
 def gaussmix(x, y, x0s, y0s, sigmas, norms):
     #Figure out how many Gaussian components you have
     ngauss = len(norms)
+    result = None
     for i in range(ngauss):
-        this_gauss = 1.0 / (2.0 * np.pi) ** 0.5 / sigmas[i]
-        this_gauss *= np.exp(-1.0/2.0/sigmas[i]/sigmas[i]*((x - x0s[i]) ** 2 + (y - y0[i]) **2))
+        this_gauss = norms[i] / (2.0 * np.pi) ** 0.5 / sigmas[i]
+        this_gauss *= np.exp(-1.0/2.0/sigmas[i]/sigmas[i]*((x - x0s[i]) ** 2 + (y - y0s[i]) **2))
         if result is not None:
             result += this_gauss
         else:
