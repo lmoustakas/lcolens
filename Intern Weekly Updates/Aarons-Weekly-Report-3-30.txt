@@ -1,0 +1,36 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (3/23 - 3/30)
+DATE: MARCH 30, 2015
+CC: ANDREW ROMERO-WOLF
+
+Last week's goal:  Write a script to read object locations and fluxes from a file and use GalSim to
+plot these objects in a single frame.
+
+Accomplishments:  I have a script that takes object locations in RA/DEC and fluxes from a list (not 
+from a file), and plots a Gaussian profile at each point in a single frame.  This code is saved as 
+an IPython Notebook, GalSim_Aaron_2.ipynb, in the /python folder on the repository.
+
+Challenges:  I thought translating from RA/DEC to pixel coordinates would be difficult.  But it 
+turned out to be unnecessary.  GalSim locates objects in terms of arcseconds from the center of the
+image.  It then converts this to pixels when it draws the image.  So I set the center equal to some
+RA/DEC coordinates in decimal degrees.  Then the shift to the object location is calculated as:
+dRA = center_RA - object_RA; dDEC = center_DEC - object_DEC.  The pixel conversion is automatic
+when GalSim draws the image.
+
+I found a convenient python package, astrolib.coords, which converts RA/DEC as a string, e.g. 
+'04:38:14.786 -12:17:14.91', to decimal degrees.  Although it seems that Chris's function will 
+return locations in decimal degrees, so this conversion may not be necessary in future 
+implementations.
+
+New goals for this week:
+
+	1. Finish writing and submit my Project Proposal to the Education Office.
+	2. In the code from last week, populate the list of object parameters by reading from an ascii
+	   file.
+	3. Use actual locations of HE0435-1223 and APASS stars in our field.
+	3. Increase the number of object parameters to include profile types and parameters (e.g., 
+	   Moffat, Sersic, Exponential, etc., alpha, beta, FWHM, etc.)
+	4. Coordinate with Chris to integrate his light-curve simulation data.
+	
+
