@@ -1,0 +1,11 @@
+TO:	LEONIDAS MOUSTAKAS
+FROM:	CHRISTOPHER GONZALEZ
+SUBJECT:	WEEK 9/10 - WEEKLY UPDATE
+DATE:	March 30, 2015
+CC:	ANDREW ROMERO-WOLF
+
+During week 9 I was able to update my data_movie_chris.pynb script to show the lensed quasar and save images as well as save images of the entire observation. Creating a script that could iterate over all observations and show the entire observation proved to be difficult and is where I spent most of my time. I switched from using pylab to aplpy to solve this issue but the code takes a long time to finish. Generating the full images for all observations can take approximately 40 minutes and required modifications to be made until usable images were created.
+
+During week 10 I was able to use this updated script to take a closer look at our observations. I discovered that a gradient effect could be seen on some of the images taken by the cpt observatory. The strange thing about these observations was that the gradient effect was only present on every other picture and happened between two observations where the shutter appeared to be closed. There is a span of 25 observations where this occurs starts with cpt1m010-kb70-20141218-0103-e90.fits and ends with cpt1m010-kb70-20141218-0128-e90.fits 
+
+For this next week, I will be working more closely with Aaron to generate simulated light curves that can be used to test our data analysis techniques with FITS files we generate ourselves.
