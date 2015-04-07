@@ -1,0 +1,17 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (3/30 - 4/7)
+DATE: APRIL 7, 2015
+CC: ANDREW ROMERO-WOLF
+
+In the last week I completed my Project Plan for the Education Office.  That plan benefitted from
+the conversation with Leonidas and Chris after the lecture in the 321 auditorium.  In particular,
+it made clear that the image simulation need only focus on a small area surrounding our quasar,
+and not on the entire field of objects.
+
+In addition to the Project Plan, I owe the Education Office a progress report on my activities
+since the beginning of the internship.  I will submit that report this week, and continue to work on
+the code for the image simulator.
+
+I am in Huntsville, Alabama all week for the NASA Student Launch at Marshall Space Flight Center.
+I will be back at JPL on Monday 4/13.
