@@ -1,0 +1,9 @@
+TO:	LEONIDAS MOUSTAKAS
+FROM:	CHRISTOPHER GONZALEZ
+SUBJECT:	WEEK 9 - WEEKLY UPDATE
+DATE:	April 8, 2015
+CC:	ANDREW ROMERO-WOLF
+
+This past week was an administrative week where I completed my project plan and began working on my first progress report for the education office. I will be finishing up my progress report by the end of the week.
+
+I have also continued looking into the generating time delays and have begun reading the two papers Andrew suggested. I am working on a way to convert the existing scripts into a usable python notebook for future use.
