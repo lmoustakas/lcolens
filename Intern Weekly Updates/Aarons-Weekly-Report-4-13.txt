@@ -1,0 +1,15 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (4/7 - 4/13)
+DATE: APRIL 13, 2015
+CC: ANDREW ROMERO-WOLF
+
+All of last week I was in Huntsville, AL for the NASA Student Launch at Marshall Space Flight
+Center.  The program of events kept us very busy, and little progress was made on the GalSim code
+I am developing.
+
+I did write a Progress Report for the Eduction Office, which details my activities since the
+beginning of the internship period.
+
+This week is Spring Break at Citrus College.  With the extra time, I expect to make good progress on
+the GalSim code!
