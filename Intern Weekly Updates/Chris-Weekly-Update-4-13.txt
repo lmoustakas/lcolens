@@ -1,0 +1,9 @@
+TO:	LEONIDAS MOUSTAKAS
+FROM:	CHRISTOPHER GONZALEZ
+SUBJECT:	WEEK 12 - WEEKLY UPDATE
+DATE:	April 13, 2015
+CC:	ANDREW ROMERO-WOLF
+
+I have been continuing to work on documents for the education office as well as getting the time delay scripts to run in a python notebook. I have begun reworking some of the code that was geared towards terminal use like parsing paramaters to creating an object with these paramters instead.
+
+I will continue reworking this code throughout the week.
