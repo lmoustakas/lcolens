@@ -1,0 +1,16 @@
+instructions
+------------
+
+any line without an equals sign will be skipped over
+put no spaces before or after the equals sign
+comments begin with #
+precede # with a single space
+
+general observational parameters
+--------------------------------
+
+img_size=60 # pixels
+img_center=04:38:14.786 -12:17:14.91 # RA DEC
+pixel_scale=0.387 # arcsec/pixel
+sky_noise=30 # what does this number mean?
+
