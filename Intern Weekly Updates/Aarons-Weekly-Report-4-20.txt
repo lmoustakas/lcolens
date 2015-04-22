@@ -1,0 +1,23 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (4/13 - 4/20)
+DATE: APRIL 21, 2015
+CC: ANDREW ROMERO-WOLF
+
+Good progress has been made on the GalSim code.  The code is saved as GalSim_Aaron_2.ipynb 
+in the /python/anb folder on the repository.
+
+The code reads general observational parameters from a text file:  image size [pixels], image center
+[RA DEC], pixel scale [arcsec/pixel], and background flux [ADU/pixel].
+
+The code reads object parameters from a CSV file.  The CSV file currently specifies the object
+name, object coordinates [RA DEC], profile type [currently only Moffat], and Moffat parameters
+beta and FWHM.
+
+Still to do:
+
+     1. Fix the background flux setting; it is not working.
+     2. Add ellipticity and rotation parameters to the object parameters file.
+     3. Add additional profile types [Sersic, de Vaucouleurs] and their required parameters.
+     4. Integrate the output from Chris' light-curve simulations.
+     
