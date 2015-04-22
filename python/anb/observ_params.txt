@@ -9,8 +9,8 @@ precede # with a single space
 general observational parameters
 --------------------------------
 
-img_size=30 # pixels
+img_size=25 # pixels
 img_center=04:38:14.786 -12:17:14.91 # RA DEC
 pixel_scale=0.387 # arcsec/pixel
-sky_level=1000 # ADU/arcsec^2
+sky_level=100 # ADU/arcsec^2
 
