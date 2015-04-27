@@ -10,7 +10,7 @@ general observational parameters
 --------------------------------
 
 img_size=25 # pixels
-img_center=04:38:14.786 -12:17:14.91 # RA DEC
+img_center=04:38:14.9 -12:17:14.4 # RA DEC
 pixel_scale=0.387 # arcsec/pixel
 sky_level=5e3 # ADU/arcsec^2
 
