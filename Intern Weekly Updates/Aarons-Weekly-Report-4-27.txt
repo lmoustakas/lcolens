@@ -1,0 +1,45 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (4/20 - 4/27)
+DATE: APRIL 27, 2015
+CC: ANDREW ROMERO-WOLF
+
+More progress has been made on the GalSim code, which is now saved as Simulator.ipynb in the 
+/python/anb folder on the repository.
+
+The code reads general observational parameters from a text file:  image size [pixels], image center
+[RA DEC], pixel scale [arcsec/pixel], and background flux [ADU/pixel].  As Todd pointed out, the
+background flux will vary with each frame, so perhaps this should not be a general observational
+parameter.  We will need to simulate a changing background flux.
+
+The object parameters have been split into two separate files:  a CSV file containing the 
+parameters of unchanging reference objects (the lensing galaxy, APASS stars, etc.), and a CSV file
+containing the objects with varying flux (the quasar images).
+
+The object parameter files have been modified as follows:
+
+	Instead of listing every possible profile parameter by name, three generic parameters are
+	listed (par_1, par_2, par_3), and these are interpreted by the code in light of the relevant
+	profile.  For example, for a Moffat profile par_1=beta, par_2=FWHM, par_3=half light radius.
+	These parameters will be different for a Gaussian profile, etc.  Documentation will specify the
+	parameters for each profile.  Typically, GalSim requires only 1 of several possible parameters.
+	When more than one parameter is entered, the code simply takes the first one and ignores the
+	others.
+	
+	Ellipticity and position angle have been added as parameters.
+	
+	Flux has been added as a parameter of the reference objects, since these should be unchanging.
+	The flux of the quasar images will be read from Chris' simulated light curves.
+	
+	The reference object file supports Moffat and de Vaucouleur profiles.  More profiles will be
+	added today.  The variable object file supports Gaussian and Moffat profiles.  More will be
+	added today.
+	
+The background flux is working.  It is specified as counts/arcsec^2.
+
+Still to do:
+
+     1. Add additional profile types [Sersic, etc.] and their required parameters.
+     2. Locate objects by their full coordinates instead of their relative coordinates.
+     3. Integrate the output from Chris' light-curve simulations.
+     4. Simulate the changing background flux.
