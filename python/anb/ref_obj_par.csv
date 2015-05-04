@@ -1,2 +1,2 @@
-#object,RA (arcsec),DEC (arcsec),profile,par 1,par 2,par 3,ellipticity,position angle,flux
-G,4:38:14.82196,-12:17:14.9665,deVaucouleurs,1.5,,,0.09,174.8,1.00E+04
+object,RA (arcsec),DEC (arcsec),profile,par 1,par 2,par 3,ellipticity,position angle,flux
+G,4:38:14.82,-12:17:15.0,deVaucouleurs,1.5,,,0.09,174.8,1.00E+04
