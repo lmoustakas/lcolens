@@ -1,5 +1,5 @@
-#object,RA (arcsec),DEC (arcsec),profile,par 1,par 2,par 3,ellipticity,position angle
-A,4:38:14.90,-12:17:14.4,moffat,3,2,,0.09,174.8
-B,4:38:14.8017,-12:17:13.8482,moffat,3,2,,0.09,174.8
-C,4:38:14.73557,-12:17:15.0022,moffat,3,2,,0.09,174.8
-D,4:38:14.83748,-12:17:16.016,moffat,3,2,,0.09,174.8
+object,RA (arcsec),DEC (arcsec),profile,par 1,par 2,par 3,ellipticity,position angle
+A,4:38:14.90,-12:17:14.4,moffat,3,1.2,,0.09,174.8
+B,4:38:14.80,-12:17:13.8,moffat,3,1.2,,0.09,174.8
+C,4:38:14.74,-12:17:15.0,moffat,3,1.2,,0.09,174.8
+D,4:38:14.84,-12:17:16.0,moffat,3,1.2,,0.09,174.8
