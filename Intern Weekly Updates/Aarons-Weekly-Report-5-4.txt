@@ -1,0 +1,48 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (4/27 - 5/4)
+DATE: May 4, 2015
+CC: ANDREW ROMERO-WOLF
+
+1. LCOGT field trip.
+
+	Last Friday, Andrew, Chris and I had a nice field trip to see Todd and Curtis at the LCOGT
+	offices in Santa Barbara.  After a tour of the facilities and lunch, Chris gave his
+	end-of-semester talk.  I benefitted from the comments he received, since I will be giving a
+	similar talk in about a month.  In the afternoon, we outlined the next steps of the LCOlens
+	project with Todd and Curtis.
+
+2. GalSim code:
+
+	a. After talking with Curtis and Andrew in Santa Barbara, I revised the GalSim code to store the
+	   object parameters in astropy tables.  (Instead of in dictionaries, which were not well suited
+	   for the task.)  The code is much more elegant now.
+	   
+	b. Objects are now located by their full HMS DMS coordinates, instead of by relative coords.
+	   I also wrote a utility function that takes a full HMS DMS reference coordinate and a list of
+	   relative coordinates, and returns the full HMS DMS coordinates of all objects.
+	
+	c. The code now writes the Modified Julian Date and Exposure Time to the header of the FITS
+	   files.  In Santa Barbara, Todd mentioned other parameters that should be added to the
+	   headers:  CRVAL1, CRVAL2, CRPIX1, CRPIX2.
+	   
+	d. A test run was performed with lists of flux values, modified julian dates, and exposure times
+	   inserted into the code for each of the four quasar images.  The code took 11 minutes to
+	   produce a batch of 8 FITS files (25 x 25 pixels each).  This was surprising and alarming to
+	   Curtis and Andrew, who thought the code should not take more than a second per image.  I need
+	   to understand why the code takes so long to run, and how that run-time can be minimized.
+	   
+	e. The test run revealed one bug in the code that still needs to be fixed.  I set the fluxes
+	   so that in each frame one image should be brighter than the others -- the bright image should
+	   circle around the cross clockwise:  A --> B --> C --> D.  Instead, A is bright.  Then A and B
+	   are both bright.  Then A, B, C are all bright, etc.  So I need to figure out why it is doing
+	   this.
+	
+Still to do:
+
+     1. Debug the code to fix the problem from the test run.  (Explained above in part 1. e.)
+     2. Calculate and write CRVAL1, CRVAL2, CRPIX1, CRPIX2 to the headers of the FITS files.
+     3. Figure out why the code takes so long to run.  Try to minimize run time.
+     4. Add additional profile types [Sersic, etc.] and their required parameters.
+     5. Integrate the output from Chris' light-curve simulations.
+     6. Simulate the changing background flux.
