@@ -1,0 +1,45 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (5/4 - 5/11)
+DATE: May 11, 2015
+CC: ANDREW ROMERO-WOLF
+
+The following progress has been made on the GalSim code:
+	   
+	a. Bugs described in the last report have been resolved (see part 1. e. of last week's report).
+	
+	b. Run-time has been reduced from ~1 min per image to ~1 second per image.  The source of the
+	   problem is the fact that de Vaucouleurs and Sersic profiles have broad tails that GalSim
+	   computes to infinity, if you let it.  But you can also specify a 'truncation radius' for
+	   these profiles.  Setting the truncation radius to 10 arcseconds reduces the run-time to ~1
+	   second per image.  Truncation radius has been included as a parameter for these profiles in
+	   the object parameter tables.
+	   
+	c. The Sersic profile is now supported in the object parameter tables.
+	
+	d. I have a rough algorithm that converts relative magnitudes to flux values.  It is probably
+	   incorrect as it stands.  It takes the following steps:
+	   
+	   - solve the relative magnitude equation for luminosity, which I suppose gives a value in
+	     units of [erg/s].
+	   - convert from [erg/s] to [J/s]
+	   - find the energy of a photon at the filter wavelength using E = hc/lambda
+	   - convert luminosity to photons/s (= luminosity/energy per photon)
+	   - get the total photons by multiplying the photon rate by the exposure time
+	   - I am using this value (total photons) for the flux
+	   
+	   This is probably incorrect, but it gives values of the right magnitude for the GalSim
+	   flux parameter.
+	   
+	e. I am using Andrew's data table of HE0435-1223 magnitudes to generate the simulated FITS
+	   files.  I cannot find Chris' table of simulated magnitudes on the repository.  I will contact
+	   Chris about this.  Although Andrew's table is not simulated (they are the real values), it
+	   can still demonstrate the functionality of my code.
+	
+Still to do:
+
+     1. Create a movie of all 300 FITS files produced with Andrew's data table.
+     2. Calculate and write CRVAL1, CRVAL2, CRPIX1, CRPIX2 to the headers of the FITS files.
+     3. Simulate the changing background flux.
+     4. Contact Chris to find his simulated data table.
+     5. Refine/correct the magnitude-to-flux algorithm as necessary.
