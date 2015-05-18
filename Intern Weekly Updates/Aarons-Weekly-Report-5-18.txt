@@ -1,0 +1,52 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (5/11 - 5/18)
+DATE: May 18, 2015
+CC: ANDREW ROMERO-WOLF
+
+I submitted my second Progress Report to the Education Office today.  All that is left is a Final
+Report and a Final Presentation before my internship ends on June 2 (two weeks from tomorrow!).
+
+The GalSim code now outputs a folder of FITS files, a single FITS data cube containing all of the
+images, a folder of PNG files, and an animated GIF of the first 100 images.
+	
+	a. The data cube is useful for viewing in SAO DS9.  DS9 will cycle through the individual
+	   frames, which is kind of an animation.  DS9 will also create a movie from the frames, if you
+	   have the right version of DS9 (my version would not do it).
+	   
+	b. The PNG files were created to make the GIF animation.  The PNG files are also easier to
+	   browse than the FITS images.  (The Mac Finder window will preview them for you.)  And the PNG
+	   files can easily be inserted into presentations, reports, etc.
+	   
+	c. The GIF animation was created with ImageMagick from the PNG files.  I had intended to use DS9
+	   to make the movie, but that functionality is not available on my version of DS9.
+
+Difficulties:
+
+	a. Creating the GIF animation raised an error after 190 frames:  'Too many files open'.  So I
+	   put only 100 frames in the GIF.  I will see if there is a way around this error.  Perhaps
+	   there is a way to close the files while making the animation.
+	   
+	b. As it stands, the names of the quasar images ('A', 'B', 'C', 'D') need to be hard-coded.  If
+	   we change the image names for a different project (say, to 'Q', 'R', 'S'), we would need to
+	   change those names at one place in the code.  This is not ideal.  I will look for ways to
+	   avoid hard-coding the names.
+	   
+	c. The magnitude-to-counts converter uses hard-coded values for the average filter wavelength,
+	   the zero-point, and the quantum efficiency of the CCD.  These values should be read from a
+	   file -- perhaps from the observational parameters file?
+	
+Still to do:
+
+    a. Refine the magnitude-to-counts converter as necessary.  (Look at Andrew's code for this.)
+    
+    b. Read the average filter wavelength, zero-point, and quantum efficiency from the observational
+       parameters file.
+       
+    c. Avoid hard-coding the names of the quasar images.
+    
+    d. Find a way to create an animation with all 300 images without raising an error:  'Too many
+       files open'.
+       
+    e. Perhaps combine all object parameters (both reference objects and the quasar images) into a
+       single parameter file.  I am not sure it is necessary to sort them into two different files.
