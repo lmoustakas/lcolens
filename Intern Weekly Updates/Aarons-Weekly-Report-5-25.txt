@@ -1,0 +1,36 @@
+TO: LEONIDAS MOUSTAKAS
+FROM: AARON BUNCH
+SUBJECT: WEEKLY REPORT (5/18 - 5/25)
+DATE: May 25, 2015
+CC: ANDREW ROMERO-WOLF
+
+In the past week I resolved the following problems:
+
+	a. I corrected the magnitude-to-counts function.  Now it just uses the formula:
+	   counts = 10**(-0.4*(m - m0)), where m is the magnitude and m0 is the zero point.
+	   
+	b. The exposure time is now read from the general observational parameters file.
+	   (It had been hard-coded.)
+	
+	c. The names of the quasar images are no longer hard-coded.  However, the names of the objects
+	   in the object parameter files must correspond to the names of the objects in the light-curve
+	   table.
+	   
+	d. I've been trouble-shooting the 'Too many files open' error.  The error arises when I try to
+	   save the FITS images as PNG files.  I can save about 190 of them, and then 'too many open'.
+	   I still have not solved this problem.
+	
+My internship ends on June 2, and my final presentation and report are due on Monday, June 1.
+During this last week, I will work on the following:
+
+    a. Complete the final report for the Education Office and for the faculty at Citrus College.
+    
+    b. Prepare slides for the presentation on June 1.
+    
+    c. Resolve the 'Too many files open' error.
+    
+    d. Include sky orientation as a variable in the observational parameters file.
+    
+    e. Look into noise that can be added to the object (in addition to the background noise).
+    
+    f. Review the code with Andrew and Curtis.
