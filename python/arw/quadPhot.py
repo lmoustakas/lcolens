@@ -7,10 +7,11 @@ Estimation of quadruply lensed quasar images with LCOGT images.
 '''
 
 import matplotlib
-matplotlib.use('Agg') 
+#matplotlib.use('Agg') 
 from AnalysisLibrary import * 
 import sys
 import argparse
+matplotlib.rcParams['figure.facecolor']='white'
 
 if __name__ == "__main__":
     
@@ -94,6 +95,6 @@ if __name__ == "__main__":
 	print 'YOU HAVE SELECTED A LEVEL OF EMCEE FITTING OF %d'%(args.emcee_level)
 	print 'THIS CAPABILITY HAS NOT YET BEEN DEVELOPED'
 	print 'THANK YOU FOR YOUR PATIENCE'
-    # plt.show()
+    plt.show()
 
 

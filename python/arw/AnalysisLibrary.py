@@ -5,7 +5,7 @@ from astropy.io import fits
 from astropy.io import ascii
 from astropy import wcs
 
-from wcsaxes import WCSAxes
+#from wcsaxes import WCSAxes
 import aplpy
 import pylab as plt
 import scipy.optimize as opt
@@ -203,6 +203,24 @@ def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset):
   if(alpha<0.): m+=1.e9
   #print offset
   return m.ravel()
+  #return np.array(g) 
+
+def twoD_elliptical_Moffat((x, y), amplitude, alpha, beta, xo, yo, el, theta, offset):
+  xo = float(xo)
+  yo = float(yo)    
+  sigma_x = alpha
+  sigma_y = el*alpha
+  a = (np.cos(theta)**2)/(2*sigma_x**2) + (np.sin(theta)**2)/(2*sigma_y**2)
+  b = -(np.sin(2*theta))/(4*sigma_x**2) + (np.sin(2*theta))/(4*sigma_y**2)
+  c = (np.sin(theta)**2)/(2*sigma_x**2) + (np.cos(theta)**2)/(2*sigma_y**2)
+
+  m = offset + amplitude*( 1. + ( a*(x-xo)**2 + 2*b*(x-xo)*(y-yo)+ c*(y-yo)**2 ) )**(-beta)
+  #print np.array(g)
+  #print g
+  #print 'in Moffat 2D', offset, amplitude, a, amplitude*a
+  if(alpha<0.): m+=1.e9
+  #print offset
+  return m.ravel()
   #return np.array(g)    
 
 def twoD_Moffat_proj(x, amplitude, alpha, beta, xo, yo, offset):
@@ -281,6 +299,67 @@ class SourceImage:
     self.moffat_parms = popt
     self.moffat_fwhm = popt[1]*2.*np.sqrt(2.**(1/popt[2])-1.)
     self.moffat_chi = (self.amp-twoD_Moffat_proj(self.rad, *self.moffat_parms))/np.sqrt(self.amp)
+    #self.moffat_chi = (self.amp-twoD_Moffat_proj(self.rad, *self.moffat_parms))/np.sqrt(twoD_Moffat_proj(self.rad, *self.moffat_parms))
+    return popt
+
+
+  def fit_elliptical_moffat(self, verbose=False):
+    if(verbose): print 'fitting'
+    self.x_max, self.y_max = np.unravel_index(self.image.argmax(), self.image.shape)
+    background_count_guess = np.min(self.image)
+    #while( np.min(self.image)<0. ):
+	#xm, ym = np.unravel_index(self.image.argmin(), self.image.shape)
+	#self.image[xm,ym]=np.median(self.image)
+    if(background_count_guess<0.): 
+	print np.median(self.image)
+	plt.figure()
+	plt.imshow(self.image, interpolation='none')
+	plt.colorbar()
+	plt.savefig('wtf.png')
+	exit()
+    #initial_guess = (image[x_max,y_max],x_max,y_max,3.,3.,0.,1500.)
+    #initial_guess_simple = (image[x_max,y_max],x_max,y_max,3.,1500.)
+    guess_alpha = 3.
+    guess_beta = 2.
+    el=0.
+    self.initial_guess_elliptical_moffat = (self.image[self.x_max,self.y_max], guess_alpha, guess_beta, self.x_max, self.y_max, 1., 0., background_count_guess)
+    print self.initial_guess_elliptical_moffat
+    if(verbose): print 'initial guess', self.initial_guess_elliptical_moffat
+    if(verbose): print len(self.image)
+    x=np.arange(0.,len(self.image))
+    y=np.arange(0.,len(self.image))
+    self.xg, self.yg = np.mgrid[:len(self.image), :len(self.image)]
+    #popt, pcov = opt.curve_fit(twoD_Gaussian, (xg, yg), image.ravel(), p0=initial_guess)
+    #popt, pcov = opt.curve_fit(twoD_Gaussian_simple, (xg, yg), image.ravel(), p0=initial_guess_simple)
+    self.fit_ok = True
+    #try:	
+    popt, pcov = opt.curve_fit(twoD_elliptical_Moffat, (self.xg, self.yg), self.image.ravel(), p0=self.initial_guess_elliptical_moffat)
+    '''
+    except:
+      self.fit_ok = False
+      #maskval = np.sqrt((3.*np.sqrt(N_bkg))**2 + sigma_read**2)
+      #Hmasked  = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image-N_bkg)
+      Hmasked2 = np.ma.masked_where( (self.xg-15)**2 + (self.yg-15)**2 > 200,self.image)
+      self.image = Hmasked2.copy()
+      #estimate = np.sum(Hmasked)
+      #popt, pcov = opt.curve_fit(twoD_Moffat, (self.xg, self.yg), self.image.ravel(), p0=self.initial_guess_moffat)
+      print 'Moffat Fit Failed'
+      #plt.figure()
+      #plt.subplot(221)
+      #plt.imshow(self.image, interpolation='none')
+      #plt.subplot(222)
+      #plt.imshow(Hmasked2, interpolation='none')
+      #plt.show()
+      popt = self.initial_guess_moffat
+    '''
+    if(verbose): print popt
+    
+    self.elliptical_moffat_fit_image = twoD_elliptical_Moffat((self.xg, self.yg), *popt).reshape(len(self.image),len(self.image))
+    self.rad, self.amp = radial_profile(self.image, popt[3], popt[4])
+    self.elliptical_moffat_parms = popt
+    self.elliptical_moffat_fwhm = popt[1]*2.*np.sqrt(2.**(1/popt[2])-1.)
+    self.elliptical_moffat_chi = self.amp
+    #self.elliptical_moffat_chi = (self.amp-twoD_Moffat_proj(self.rad, *self.elliptical_moffat_parms))/np.sqrt(self.amp)
     #self.moffat_chi = (self.amp-twoD_Moffat_proj(self.rad, *self.moffat_parms))/np.sqrt(twoD_Moffat_proj(self.rad, *self.moffat_parms))
     return popt
 
@@ -655,6 +734,95 @@ def estimate_total_light(obj, N_bkg, sigma_read, display=0, out='out'):
   '''
   return estimate, uncertainty
 
+
+def estimate_total_light_elliptical(obj, N_bkg, sigma_read, display=0, out='out'):
+  obj.fit_elliptical_moffat()
+  #print obj.moffat_parms
+  alpha = obj.elliptical_moffat_parms[1]
+  beta = obj.elliptical_moffat_parms[2]
+  #print 'a,b',alpha,beta
+  # DO SOME COOKIE CUT OUT STUFF LATER, FOR NOW ESTIMATE BY THE NUMBER OF COUNTS DUE TO THE SIGNAL
+  estimate = np.sum(obj.elliptical_moffat_fit_image - obj.elliptical_moffat_parms[5]) # magnitude based on value of fitted counts
+  uncertainty = np.sqrt(np.sum(obj.elliptical_moffat_fit_image)+sigma_read**2)
+  # percent uncertainty is on the level of light.
+  #print '\t',N_bkg, obj.moffat_parms[5]
+  #maskval = np.sqrt((3.*np.sqrt(N_bkg))**2 + sigma_read**2)
+  #maskval = np.sqrt((5.*np.sqrt(obj.moffat_parms[5]))**2 + sigma_read**2)
+  #Hmasked  = np.ma.masked_where((obj.image-obj.moffat_parms[5])<maskval,obj.image-obj.moffat_parms[5])
+  #Hmasked2 = np.ma.masked_where((obj.image-obj.moffat_parms[5])<maskval,obj.image)
+  #estimate = np.sum(Hmasked)
+  #frac_uncertainty = np.sqrt(np.sum(Hmasked2)+sigma_read**2) / np.sum(Hmasked)
+  print '\timage peak',np.max(obj.image)
+  print '\timage bkg',np.min(obj.image)
+  #print '\tmasked image sum counts',np.sum(Hmasked2)
+  #print '\tmasked bkg subtractected image sum counts',np.sum(Hmasked)
+  #print '\tfrac_uncertainty',frac_uncertainty
+  print '\tmoffat_integrated count',estimate
+  print '\tmoffat estimated uncertainty',uncertainty
+  print '\tmoffat estimated frac uncertainty',uncertainty/estimate
+  
+  #maskval = np.sqrt((3.*np.sqrt(N_bkg))**2 + sigma_read**2)
+  #Hmasked  = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image-N_bkg)
+  #Hmasked2 = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image)
+  #estimate = np.sum(Hmasked)
+  #uncertainty = np.sqrt(np.sum(Hmasked2))
+  if(display >= 3):
+	plt.figure(figsize=(8,11))
+        plt.subplot(321)
+	plt.imshow(obj.image, interpolation='none', vmin=np.min(obj.image), vmax=np.max(obj.image))
+	plt.colorbar()
+        plt.title('data')
+        plt.subplot(322)
+	plt.imshow(obj.elliptical_moffat_fit_image, interpolation='none', vmin=np.min(obj.image), vmax=np.max(obj.image))
+	plt.colorbar()
+        plt.title('Moffat Fit')
+        plt.subplot(323)
+	res = obj.image-obj.elliptical_moffat_fit_image
+	plt.imshow(res, interpolation='none', vmin=-np.max(np.max(res)),  vmax=np.max(np.max(res)))
+	plt.colorbar()
+	plt.title('residuals')
+        plt.subplot(324)
+	chi = res/(np.sqrt(obj.image + obj.FM.readnoise**2))
+	plt.imshow(chi, interpolation='none', vmin=-np.max(np.abs(chi)), vmax=np.max(np.abs(chi)))
+	mx = np.max(np.abs(chi))
+	mn = -mx
+	plt.colorbar()
+	plt.title('chi values')
+        plt.subplot(313)
+	plt.hist(np.ravel(chi), bins=30)
+	plt.xlim(mn,mx)
+	plt.suptitle(obj.FM.fits_file_name.split('/')[-1]+'\n'+out, fontsize=20)
+	plt.xlabel('chi values')
+	plt.subplots_adjust(bottom=0.05)
+	plt.title('chi distribution')
+        plt.savefig(out+'.png', dpi=50)
+  #if(display or uncertainty/estimate>3e-2):
+  '''
+  if(display>=3):
+	  print uncertainty/estimate
+	  figure()
+	  subplot(221)
+          m1 = np.min(obj.image)
+          m2 = np.max(obj.image)
+          m3 = np.min(obj.image-N_bkg)
+          m4 = np.max(obj.image-N_bkg)
+	  imshow(obj.image, interpolation='none', vmin=m1, vmax=m2)
+	  colorbar()
+	  title('Image')
+	  subplot(222)
+	  imshow(obj.image-N_bkg, interpolation='none', vmin=m3, vmax=m4)
+	  colorbar()
+	  title('Bkg Subtracted')
+	  subplot(223)
+	  imshow(Hmasked2, interpolation='none', vmin=m1, vmax=m2)
+	  colorbar()
+	  subplot(224)
+	  imshow(Hmasked, interpolation='none', vmin=m3, vmax=m4)
+	  colorbar()
+	  show()
+  '''
+  return estimate, uncertainty
+
 def magnitude(value):
   return -2.5*np.log10(value)
 
@@ -673,6 +841,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   alpha = []
   beta  = []
   bkg=[]
+  #for k in range(4,6):
   for k in range(0,len(APASS_table)):
     if(APASS_table[filt][k]!='NA' and APASS_table[filt_err][k]!='0' and k not in APASS_rejects): 
 	print 'APASS', k
@@ -680,8 +849,11 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
 	obj = SourceImage(FM, APASS_table['radeg'][k], APASS_table['decdeg'][k], 31)
 	N_bkg = np.median(obj.image)
 	outTag = out+'_src_%d'%k
+	#plt.show()
 	try:
 		intg, intg_unc = estimate_total_light(obj, N_bkg, sigma_read, display=display, out=outTag)
+		#intg, intg_unc = estimate_total_light_elliptical(obj, N_bkg, sigma_read, display=display, out=outTag)
+
 	except:
 		continue
 	if(obj.fit_ok):
@@ -698,7 +870,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
           imshow(obj.image, interpolation='none')
           title('APASS %d, m_APASS %1.2f'%(k,float(APASS_table[filt][k])))
 	  '''
-  #show()
+  #plt.show()
   # ESTIMATE ZERO POINTS FOR EACH APASS SOURCE
   ZP = np.array(m_APASS)-np.array(m_I)
   # USE ESTIMATED UNCERTINTIES TO WEIGHT THE MEAN AND RMS OF ZERO POINTS
