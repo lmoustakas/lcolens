@@ -1,0 +1,54 @@
+A few hard-won lessons about GalSim
+Aaron Bunch, July 1, 2015
+
+1. Start by creating an 'image', which is an empty 2D pixel array.  Specify the
+size in pixels.
+
+	image = galsim.ImageF(xsize, ysize)
+
+2. Next, create an object 'profile'.  The profile defines the astronomical
+object to be drawn onto the image.  GalSim supports many different profiles: 
+Gaussian, Moffat, Sersic, de Vaucouleurs, and others.  Each profile has its own
+required and optional parameters.  The profiles make no reference to pixels. 
+They are mapped onto pixels later.
+
+	profile = galsim.Moffat(flux=flux, beta=beta, fwhm=fwhm)
+
+3. After a profile is defined, it can be manipulated in various ways.  For
+instance, you can specify an ellipticity and position angle:
+
+	profile = profile.shear(e=e, beta=PA)
+
+4. By default, a profile is drawn in the center of the image.  But the profile
+can be shifted from the center any number of arcseconds.  This is important to
+know if you are trying to create a field of objects at different positions.
+
+	profile = profile.shift(-dx_arcsec, dy_arcsec)
+
+5. Profiles can be added to create a field of objects.  In this code, I call the
+sum of many profiles a 'field', but it is really just another profile.  If you
+put the profiles in a list, they can be summed with this command:
+
+	field = galsim.Sum(list_of_profiles)
+
+6. Draw the profile (or sum of profiles) onto the image.  In this example,
+'field' is just my name for the profile.
+
+	field.drawImage(image, scale=pixel_scale)
+
+7. After the profile is drawn to the image, you can add various kinds of noise. 
+First generate the noise (two commands), then add it to the image.
+
+	rng = galsim.BaseDeviate(random_seed)
+	noise = galsim.PoissonNoise(rng, sky_level=sky_level)
+	image.addNoise(noise)
+
+8. Once the image is complete, it can be written as a FITS file.  FITS is the
+default file format:
+
+	image.write(fits_file_name)
+
+9. If you put many images in a list, they can all be written to a single data
+cube, which can be read by SAO DS9 and software like that.
+
+	galsim.fits.writeMulti(list_of_images, cube_file_name)
