@@ -13,4 +13,4 @@ img_size=20 # pixels
 img_center=04:38:14.9 -12:17:14.4 # RA DEC
 pixel_scale=0.387 # arcsec/pixel
 sky_level=5e3 # ADU/arcsec^2
-
+exp=300 # exposure time in seconds
