@@ -9,6 +9,9 @@ its dependencies with just these two commands:
 brew tap camphogg/science
 brew install gal-sim
 
+Homebrew downloads the compressed tar.gz files to /Library/Caches/Homebrew and
+installs them in /usr/local/Cellar.
+
 2. There is a known issue with building GalSim against the anaconda python
 distribution, which causes installation to fail.  The issue and a solution are on Stack Overflow:
 
