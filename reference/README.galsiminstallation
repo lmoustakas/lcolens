@@ -1,0 +1,25 @@
+Aaron Bunch, Aug 5, 2015
+
+A few notes about installing GalSim on Mac OS X:
+
+1. The easiest way to install GalSim on Mac OS X is probably with the Homebrew
+package manager (http://brew.sh/).  Homebrew will install GalSim and all of
+its dependencies with just these two commands:
+
+brew tap camphogg/science
+brew install gal-sim
+
+2. There is a known issue with building GalSim against the anaconda python
+distribution, which causes installation to fail.  The issue and a solution are on Stack Overflow:
+
+http://stackoverflow.com/questions/23771608/trouble-installing-galsim-on-osx-with-anaconda
+
+The solution offered on Stack Overflow worked for me, namely, the command:
+
+sudo install_name_tool -id <yourpath>/anaconda/lib/libpython2.7.dylib
+<yourpath>/anaconda/lib/libpython2.7.dylib
+
+3. If you are using anaconda, you may want to check out the Stack Overflow
+page (linked above) and address that issue preemptively before trying to install
+GalSim.
+
