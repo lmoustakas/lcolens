@@ -4,6 +4,7 @@ import os
 from astropy.io import fits
 from astropy.io import ascii
 from astropy import wcs
+from astroscrappy import detect_cosmics
 
 #from wcsaxes import WCSAxes
 import aplpy
@@ -170,6 +171,88 @@ class FITSmanager:
     plt.savefig(out+'.png', dpi=50)
     #plt.show()
 
+  def isFlipped(self, ra, dec):
+    xv,yv = self.bigw.wcs_world2pix(ra,dec,1)
+    r0,d0 = self.bigw.wcs_pix2world(xv,yv,1)
+    r1,d1 = self.bigw.wcs_pix2world(xv+1,yv+1,1)
+    print 'flip', r1-r0, d1-d0
+    if(r1-r0>0.): 
+	return True
+    return False
+
+  def plot_image_movie(self, ra, dec, ax1, ax2, ax3, ZP_flx, theta, dx=0., dy=0.,Npx=31, out='out'):
+    # GET THE QUASAR IMAGE
+    x0, y0, amp1, amp2, amp3, amp4, alpha, beta, nbkg = theta
+
+    x,y = self.bigw.wcs_world2pix(ra,dec,1)    
+    yg, xg =      np.mgrid[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+    vals = self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+    vals0 = vals.copy()
+    if(self.isFlipped(ra,dec)):
+       dx*=-1.
+    d, r = self.bigw.wcs_pix2world(xg,yg, 1)
+    #d, r = self.bigw.wcs_pix2world(xg+dx,yg+dy, 1)
+    #plt.pcolor(d,r,self.image_data[y-Npx/2:y+Npx/2+1,x-Npx/2:x+Npx/2+1], interpolation='none')
+    mask, clean = detect_cosmics(vals, sigfrac=0.15, sigclip=4, objlim=4, cleantype='idw')
+    vals -= nbkg
+    vals*=ZP_flx
+    mvals = np.ma.masked_where(mask==1,vals)
+    print xg.shape, yg.shape, vals.shape
+    #dx=np.sum(xg*mvals)/np.sum(mvals)-x
+    #dy=np.sum(yg*mvals)/np.sum(mvals)-y
+    #print '* dx,dy',dx,dy
+    #plt.pcolor(d, r, vals, cmap='Reds', vmin=0, vmax=1500)
+    ax1 = plt.subplot(3,2,2)
+    plt.pcolor(d, r, vals, cmap='jet', vmin=0., vmax=3.8e-9)
+    plt.plot([ra-1.5e-3,ra+1.5e-3], [dec,dec], 'k--')
+    plt.plot([ra,ra], [dec-1.5e-3,dec+1.5e-3], 'k--')
+    #d, r = self.bigw.wcs_pix2world(xg-dx,yg-dy, 1)
+    #cb = plt.colorbar()
+    plt.axis('equal')
+    plt.xlim(ra+1.5e-3, ra-1.5e-3)
+    plt.ylim(dec-1.5e-3, dec+1.5e-3)
+    y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax1.yaxis.set_major_formatter(y_formatter)
+    x_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax1.xaxis.set_major_formatter(x_formatter)
+
+    ax2 = plt.subplot(3,2,4)
+    obj = SourceImage(self, ra, dec, Npx)
+    fl = self.isFlipped(ra,dec)
+    qim = obj.quad_image_model(x0+10, y0+10, amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl)
+    plt.pcolor(d,r,qim)
+    #plt.pcolor(d, r, qim, cmap='jet', vmin=0., vmax=3.8e-9)
+    plt.axis('equal')
+    plt.xlim(ra+1.5e-3, ra-1.5e-3)
+    plt.ylim(dec-1.5e-3, dec+1.5e-3)
+    plt.plot([ra-1.5e-3,ra+1.5e-3], [dec,dec], 'k--')
+    plt.plot([ra,ra], [dec-1.5e-3,dec+1.5e-3], 'k--')
+    #d, r = self.bigw.wcs_pix2world(xg-dx,yg-dy, 1)
+    #plt.colorbar()
+    plt.axis('equal')
+    plt.xlim(ra+1.5e-3, ra-1.5e-3)
+    plt.ylim(dec-1.5e-3, dec+1.5e-3)
+    y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax2.yaxis.set_major_formatter(y_formatter)
+    x_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax2.xaxis.set_major_formatter(x_formatter)
+
+    ax3 = plt.subplot(3,2,6)
+    plt.pcolor(d,r,vals0-qim)
+    plt.axis('equal')
+    plt.xlim(ra+1.5e-3, ra-1.5e-3)
+    plt.ylim(dec-1.5e-3, dec+1.5e-3)
+    plt.plot([ra-1.5e-3,ra+1.5e-3], [dec,dec], 'k--')
+    plt.plot([ra,ra], [dec-1.5e-3,dec+1.5e-3], 'k--')
+    #d, r = self.bigw.wcs_pix2world(xg-dx,yg-dy, 1)
+    #plt.colorbar()
+    plt.axis('equal')
+    plt.xlim(ra+1.5e-3, ra-1.5e-3)
+    plt.ylim(dec-1.5e-3, dec+1.5e-3)
+    y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax3.yaxis.set_major_formatter(y_formatter)
+    x_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax3.xaxis.set_major_formatter(x_formatter)
     
   def image_piece(self,ra, dec, pixels):
     x,y = self.bigw.wcs_world2pix(ra,dec,1)
@@ -1352,5 +1435,18 @@ def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, m1, m2, m3, 
   np.savez(outputFileTag+'_chains.npz', sampler.chain[:, 0:, :].reshape((-1, ndim)))
   print 'chain saving complete'
 
+def flux2magnitude(flux):
+    return -2.5*np.log10(flux)
+
+def magnitude2flux(mag):
+    return np.power(10.,-mag/2.5)
+
+def magErr2fluxErr(magVal, magErr):
+    flux = magnitude2flux(magVal)
+    return flux*(1.-np.power(10.,-magErr/2.5))
+
+def fluxErr2magErr(fluxVal, fluxErr):
+    return -2.5*np.log10(1-fluxErr/fluxVal)
+    
 
 

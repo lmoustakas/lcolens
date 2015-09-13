@@ -45,7 +45,6 @@ if __name__ == "__main__":
     # PLOT QSR IMAGE
     FM.plot_image(ra_qsr, dec_qsr, Npx=npxls, out = args.outputFileTag+'_qsr')
 
-    
     # ESTIMATE THE BACKGROUND AND READ NOISE
     FM.estimate_read_noise(display=args.plots, out = args.outputFileTag+'_readnoise')
 
