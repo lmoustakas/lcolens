@@ -6,12 +6,12 @@ from astropy.io import ascii
 import glob
 import AnalysisLibrary as AL
 
-rcParams['font.size']=14
-rcParams['legend.fontsize']=14
+rcParams['font.size']=24
+rcParams['legend.fontsize']=24
 rcParams['figure.facecolor']='white'
 #fnames = glob.glob('image_*_results.npz')
-#fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_*_results.npz')
-fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_39*_results.npz')
+fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_*_results.npz')
+#fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_21*_results.npz')
 
 
 fnames = sorted(fnames)
@@ -128,14 +128,18 @@ LC4EmceeUpperError=[]
 LC4EmceeLowerError=[]
 airmass = []
 seeing_fwhm = []
-#rand_vals = np.random.randint(0,len(fnames),5)
-#rand_vals = sort(rand_vals)
+input_files = []
+det_cov = []
+pxscl = []
 #rand_vals = arange(np.random.randint(0,len(fnames))-5,5)
+#rand_vals = np.random.randint(0,len(fnames),10)
+#rand_vals = sort(rand_vals)
 #for k in rand_vals:
 for k in range(0,len(fnames)):
-	#if(k>30):
-		#continue
 	results = np.load(fnames[k])
+        print str(results['inputFile'])
+	#if('/coj' not in str(results['inputFile'])): continue
+
 	mjd_obs.append(results['mjd_obs'])
 	m1.append(results['m1'])
 	me1.append(results['me1'])
@@ -159,10 +163,11 @@ for k in range(0,len(fnames)):
 	beta.append(results['APASS_beta'])
         #if results['chiSq'] > 2. or results['maxChi'] > 5.:
         if (1==1):
-		if(k%20==0): print 'outFnm\t\tmjd_obs\t\tchiSq\tmaxChi\tinputFile\t\t\t\tm1\tZP_mean\tfilter'
+		if(k%20==0): print '\toutFnm\t\tmjd_obs\t\tchiSq\tmaxChi\tinputFile\t\t\t\tm1\tZP_mean\tfilter'
 		print '%s\t%1.3f\t%1.2f\t%1.2f\t%s\t%1.2f\t%1.2f\t%s'%(results['outFileTag'], results['mjd_obs'], results['chiSq'], results['maxChi'], str(results['inputFile']).split('/')[-1], results['m1'], results['ZP_mean'], results['filter'])
+        input_files.append(str(results['inputFile']).split('/')[-1])
 	if k==0:
-		print results.files
+		print '\t',results.files
 	fnm = str(results['inputFile'])
 	fnm = '/nisushome'+fnm
 	print fnm
@@ -270,19 +275,30 @@ for k in range(0,len(fnames)):
     	ax1=plt.subplot(322)
     	ax2=plt.subplot(324)
     	ax3=plt.subplot(326)
-        print AL.magnitude2flux(results['ZP_mean']),results['ZP_mean']
+        print '\t',AL.magnitude2flux(results['ZP_mean']),results['ZP_mean']
 	ZP_flx = AL.magnitude2flux(results['ZP_mean'])
-        print 'x0,y0',np.mean(x0Ch), np.mean(y0Ch)
+        print '\t','x0,y0',np.mean(x0Ch), np.mean(y0Ch)
         #dx = np.mean(x0Ch)
 	#dy = np.mean(y0Ch)
         theta = [np.mean(x0Ch),np.mean(y0Ch),np.mean(amp1Ch),np.mean(amp2Ch),np.mean(amp3Ch),np.mean(amp4Ch), np.mean(alphaCh), np.mean(betaCh), np.mean(nbkgCh)]
-	FM.plot_image_movie(ra_qsr, dec_qsr, ax1, ax2, ax3, ZP_flx, theta, Npx=51)
-    	plt.xlabel('Right Ascension, deg', fontsize=14)
-    	plt.ylabel('Declination, deg', fontsize=14)
+        dx = 0.
+        dy = 0.
+        if 'lsc' in fnm:
+	   dx = +1.5
+	   dy = -0.5
+        if 'cpt' in fnm:
+	   dx = -1.5
+	   dy = -0.5
+        if 'coj' in fnm:
+	   dx = -1.5
+	   dy = -0.5
+	FM.plot_image_movie(ra_qsr, dec_qsr, ax1, ax2, ax3, ZP_flx, theta, dx=dx, dy=dy, Npx=31)
+    	#plt.xlabel('Right Ascension, deg', fontsize=14)
+    	#plt.ylabel('Declination, deg', fontsize=14)
         plt.subplots_adjust(left=0.09)
 
-    	print FM.fits_file_name
-    	plt.title(FM.fits_file_name.split('/')[-1])
+    	#print '\t',FM.fits_file_name
+    	#plt.title(FM.fits_file_name.split('/')[-1])
 
     	#plt.subplots_adjust(left=0.15, right=1.0)
         #xlim(ra_qsr-1.5e-3, ra_qsr+1.5e-3)
@@ -304,26 +320,133 @@ for k in range(0,len(fnames)):
 	flux4UpperError=np.array(flux4*np.sqrt(np.array(LC4EmceeUpperError)**2/np.array(LC4Emcee)**2 + ZP_flux_wrms**2/ZP_flux**2))
 	flux4LowerError=np.array(flux4*np.sqrt(np.array(LC4EmceeLowerError)**2/np.array(LC4Emcee)**2 + ZP_flux_wrms**2/ZP_flux**2))
 
+        mag1 = AL.flux2magnitude(flux1)
+        me1Upper = AL.fluxErr2magErr(flux1, flux1UpperError)
+        me1Lower = AL.fluxErr2magErr(flux1, flux1LowerError)
+	mag2 = AL.flux2magnitude(flux2)
+	me2Upper = AL.fluxErr2magErr(flux2, flux2UpperError)
+	me2Lower = AL.fluxErr2magErr(flux2, flux2LowerError)
+	mag3 = AL.flux2magnitude(flux3)
+	me3Upper = AL.fluxErr2magErr(flux3, flux3UpperError)
+	me3Lower = AL.fluxErr2magErr(flux3, flux3LowerError)
+	mag4 = AL.flux2magnitude(flux4)
+	me4Upper = AL.fluxErr2magErr(flux4, flux4UpperError)
+	me4Lower = AL.fluxErr2magErr(flux4, flux4LowerError)
+
         mjd0 = np.floor(np.min(np.array(mjd_obs)))
         seeing_fwhm.append(np.mean(alphaCh)*2.*np.sqrt(2.**(1/np.mean(betaCh))-1.))
-
-        ax=subplot(3,2,1)
-	plt.plot(mjd_obs - mjd0, airmass, 'ro')
+        pxscl.append(float(FM.hdulist[0].header['PIXSCALE']))
+        #print '\tPIXSCALE',pxscl
+        ax=subplot(6,2,1)
+        print '*********', results['inputFile']
+        for nn in range(0,len(mjd_obs)):
+            if 'lsc' in input_files[nn]:
+	       plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'bs')
+            if 'cpt' in input_files[nn]:
+	       plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'r^')
+            if 'coj' in input_files[nn]:
+	       plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'go')
         plt.xlim(0.,2.3)
-        plt.ylim(2.2,1.0)
+        plt.ylim(2.3,1.0)
         y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
         ax.yaxis.set_major_formatter(y_formatter)
 	ylabel('Airmass')
 
-        ax=subplot(3,2,3)
-	plt.plot(mjd_obs - mjd0, seeing_fwhm, 'ro')
+        ax=subplot(6,2,3)
+        for nn in range(0,len(mjd_obs)):
+            if 'lsc' in input_files[nn]:
+	       plt.plot([mjd_obs[nn] - mjd0], [seeing_fwhm[nn]*pxscl[nn]], 'bs')
+            if 'cpt' in input_files[nn]:
+	       plt.plot([mjd_obs[nn] - mjd0], [seeing_fwhm[nn]*pxscl[nn]], 'r^')
+            if 'coj' in input_files[nn]:
+	       plt.plot([mjd_obs[nn] - mjd0], [seeing_fwhm[nn]*pxscl[nn]], 'go')
+	#plt.plot(mjd_obs - mjd0, seeing_fwhm, 'ro')
+        plt.xlim(0.,2.3)
+        plt.ylim(0.,4.0)
+        y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+        ax.yaxis.set_major_formatter(y_formatter)
+	ylabel('Seeing, arcseconds')
+
+        # estimate covariance matrix
+        mu1 = np.mean(amp1Ch)
+        mu2 = np.mean(amp2Ch)
+        mu3 = np.mean(amp3Ch)
+        mu4 = np.mean(amp4Ch)
+        cov = zeros((4,4))
+        cov[0][0] = np.mean((amp1Ch - mu1)**2)
+        cov[1][1] = np.mean((amp2Ch - mu2)**2)
+        cov[2][2] = np.mean((amp3Ch - mu3)**2)
+        cov[3][3] = np.mean((amp4Ch - mu4)**2)
+        cov[0][1] = np.mean((amp1Ch - mu1)*(amp2Ch - mu2))
+        cov[0][2] = np.mean((amp1Ch - mu1)*(amp3Ch - mu3))
+        cov[0][3] = np.mean((amp1Ch - mu1)*(amp4Ch - mu4))
+        cov[1][0] = cov[0][1]
+        cov[1][2] = np.mean((amp2Ch - mu2)*(amp3Ch - mu3))
+        cov[1][3] = np.mean((amp2Ch - mu2)*(amp4Ch - mu4))
+        cov[2][0] = cov[0][2]
+        cov[2][1] = cov[1][2]
+        cov[2][3] = np.mean((amp3Ch - mu3)*(amp4Ch - mu4))
+        cov[3][0] = cov[0][3]
+        cov[3][1] = cov[1][3]
+        cov[3][2] = cov[2][3]
+        cov_det = np.linalg.det(cov)
+        print '\t','***** COV DET **** %1.2e'%cov_det
+        icov = np.linalg.inv(cov)
+        icov_det = np.linalg.det(icov)
+        print '\t','***** ICOV DET ****%1.2e'%icov_det
+        det_cov.append(cov_det)
+
+        ax=subplot(6,2,5)
+        for nn in range(0,len(mjd_obs)):
+            if 'lsc' in input_files[nn]:
+	       plt.plot([mjd_obs[nn] - mjd0], [np.log10(det_cov[nn])], 'bs')
+            if 'cpt' in input_files[nn]:
+	       plt.plot([mjd_obs[nn] - mjd0], [np.log10(det_cov[nn])], 'r^')
+            if 'coj' in input_files[nn]:
+	       plt.plot([mjd_obs[nn] - mjd0], [np.log10(det_cov[nn])], 'go')
+	#plt.plot(mjd_obs - mjd0, np.log10(np.array(det_cov)), 'ro')
+        plt.xlim(0.,2.3)
+        plt.ylim(8,11)
+        y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+        ax.yaxis.set_major_formatter(y_formatter)
+	ylabel('log$_{10}$ det $\Sigma$')
+        xlabel('Days Since MJD %1.0f'%mjd0)
+
+	'''
+        ax=subplot(6,2,5)
+	plt.plot(mjd_obs - mjd0, chiSq, 'ro')
         plt.xlim(0.,2.3)
         plt.ylim(0.,10.0)
         y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
         ax.yaxis.set_major_formatter(y_formatter)
-	ylabel('Seeing, pixels')
+	ylabel('Chi Squared')
+        xlabel('Days Since MJD %1.0f'%mjd0)
+	'''
 
-        ax=subplot(3,2,5)
+        ax=subplot(2,2,3)
+	errorbar(mjd_obs - mjd0, mag1-1.0, yerr=(me1Lower, me1Upper), fmt=',', color=[0.5,0.5,0.5])
+	errorbar(mjd_obs[-1:] - mjd0, mag1[-1:]-1.0, yerr=(me1Lower[-1:], me1Upper[-1:]), fmt=',', color='k',elinewidth=3, label='mag1 - 1.0')
+ 
+	errorbar(mjd_obs - mjd0, mag2-0.5, yerr=(me2Lower, me2Upper), fmt=',', color=[0.2,0.2,0.8])
+	errorbar(mjd_obs[-1:] - mjd0, mag2[-1:]-0.5, yerr=(me2Lower[-1:], me2Upper[-1:]), fmt=',', color='b',elinewidth=3, label='mag2 - 0.5')
+ 
+	errorbar(mjd_obs - mjd0, mag3, yerr=(me3Lower, me3Upper), fmt=',', color=[0.8,0.2,0.2])
+	errorbar(mjd_obs[-1:] - mjd0, mag3[-1:], yerr=(me3Lower[-1:], me3Upper[-1:]), fmt=',', color='r',elinewidth=3, label='mag3 + 0.0')
+ 
+	errorbar(mjd_obs - mjd0, mag4+0.5, yerr=(me4Lower, me4Upper), fmt=',', color=[0.2,0.8,0.2])
+	errorbar(mjd_obs[-1:] - mjd0, mag4[-1:]+0.5, yerr=(me4Lower[-1:], me4Upper[-1:]), fmt=',', color='g',elinewidth=3, label='mag4 + 0.5')
+        plt.xlim(0.,2.3)
+        plt.ylim(20.3,16.)
+        y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+        ax.yaxis.set_major_formatter(y_formatter)
+        xlabel('Days Since MJD %1.0f'%mjd0)
+	ylabel('Image Magnitudes')
+	legend(loc=2, numpoints=1)
+	suptitle('HE0435-1223 \n LCOGT Observations', fontsize=48)
+	#suptitle(fnm.split('/')[-1])
+
+	'''
+        ax=subplot(2,2,3)
 	errorbar(mjd_obs - mjd0, flux1, yerr=(flux1LowerError, flux1UpperError), fmt=',', color='k')
 	errorbar(mjd_obs[-1:] - mjd0, flux1[-1:], yerr=(flux1LowerError[-1:], flux1UpperError[-1:]), fmt=',', color='red',elinewidth=3)
         plt.xlim(0.,2.3)
@@ -356,6 +479,7 @@ for k in range(0,len(fnames)):
         ax.yaxis.set_major_formatter(y_formatter)
         xlabel('Days Since MJD %1.0f'%mjd0)
 	ylabel('Flux Image 4')
+	'''
 
     	plt.savefig('%s.png'%results['outFileTag'], dpi=50)
 

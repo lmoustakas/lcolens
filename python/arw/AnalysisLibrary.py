@@ -175,7 +175,7 @@ class FITSmanager:
     xv,yv = self.bigw.wcs_world2pix(ra,dec,1)
     r0,d0 = self.bigw.wcs_pix2world(xv,yv,1)
     r1,d1 = self.bigw.wcs_pix2world(xv+1,yv+1,1)
-    print 'flip', r1-r0, d1-d0
+    #print 'flip', r1-r0, d1-d0
     if(r1-r0>0.): 
 	return True
     return False
@@ -184,75 +184,99 @@ class FITSmanager:
     # GET THE QUASAR IMAGE
     x0, y0, amp1, amp2, amp3, amp4, alpha, beta, nbkg = theta
 
-    x,y = self.bigw.wcs_world2pix(ra,dec,1)    
+    x,y = self.bigw.wcs_world2pix(ra,dec,1) 
+    #x = x+x0
+    #y = y+y0
     yg, xg =      np.mgrid[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+    r, d = self.bigw.wcs_pix2world(xg+dx,yg+dy, 1)
+    d = (d-dec)*3600.
+    r = (r-ra) * np.cos(dec*np.pi/180.)*3600.
+    fwhm = alpha*2.*np.sqrt(2.**(1/beta)-1.)*float(self.hdulist[0].header['PIXSCALE'])
+
     vals = self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+
     vals0 = vals.copy()
-    if(self.isFlipped(ra,dec)):
-       dx*=-1.
-    d, r = self.bigw.wcs_pix2world(xg,yg, 1)
-    #d, r = self.bigw.wcs_pix2world(xg+dx,yg+dy, 1)
-    #plt.pcolor(d,r,self.image_data[y-Npx/2:y+Npx/2+1,x-Npx/2:x+Npx/2+1], interpolation='none')
-    mask, clean = detect_cosmics(vals, sigfrac=0.15, sigclip=4, objlim=4, cleantype='idw')
+    min_ra = -4.
+    max_ra = 4.
+    min_dec = -4.
+    max_dec = 4.
     vals -= nbkg
     vals*=ZP_flx
-    mvals = np.ma.masked_where(mask==1,vals)
-    print xg.shape, yg.shape, vals.shape
-    #dx=np.sum(xg*mvals)/np.sum(mvals)-x
-    #dy=np.sum(yg*mvals)/np.sum(mvals)-y
-    #print '* dx,dy',dx,dy
-    #plt.pcolor(d, r, vals, cmap='Reds', vmin=0, vmax=1500)
+    #print xg.shape, yg.shape, vals.shape
     ax1 = plt.subplot(3,2,2)
-    plt.pcolor(d, r, vals, cmap='jet', vmin=0., vmax=3.8e-9)
-    plt.plot([ra-1.5e-3,ra+1.5e-3], [dec,dec], 'k--')
-    plt.plot([ra,ra], [dec-1.5e-3,dec+1.5e-3], 'k--')
-    #d, r = self.bigw.wcs_pix2world(xg-dx,yg-dy, 1)
-    #cb = plt.colorbar()
+    #plt.pcolor(xg-x, yg-y, vals, cmap='jet', vmin=0., vmax=3.8e-9)
+    plt.pcolor(r, d, vals, cmap='jet', vmin=0., vmax=3.8e-9)
+    cb = plt.colorbar()
+    plt.plot([min_ra,max_ra], [0.,0.], 'k--')
+    plt.plot([0.,0.], [min_dec,max_dec], 'k--')
     plt.axis('equal')
-    plt.xlim(ra+1.5e-3, ra-1.5e-3)
-    plt.ylim(dec-1.5e-3, dec+1.5e-3)
+    plt.xlim(max_ra, min_ra)
+    plt.ylim(min_dec, max_dec)
     y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
     ax1.yaxis.set_major_formatter(y_formatter)
     x_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
     ax1.xaxis.set_major_formatter(x_formatter)
+    #plt.xticks(rotation=30)
+    #plt.title('x0 %1.3f y0 %1.3f'%(x0,y0))
+    #plt.title('Data')
+    plt.xlabel('$\Delta$RA,  arcseconds')
+    plt.ylabel('$\Delta$Dec, arcseconds')
+    ax1.text(3.8, 3.5, 'Data', fontsize=30, color='white', fontweight='bold')
+
+    #x2,y2 = self.bigw.wcs_world2pix(ra,dec,1) 
+    #yg2, xg2 =      np.mgrid[y2-(Npx-1)/2:y2+(Npx-1)/2+1,x2-(Npx-1)/2:x2+(Npx-1)/2+1]
+    #r2, d2 = self.bigw.wcs_pix2world(xg2,yg2, 1)
+    #d2 = (d2-dec)*3600.
+    #r2 = (r2-ra) * np.cos(dec*np.pi/180.)*3600.
 
     ax2 = plt.subplot(3,2,4)
     obj = SourceImage(self, ra, dec, Npx)
     fl = self.isFlipped(ra,dec)
-    qim = obj.quad_image_model(x0+10, y0+10, amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl)
-    plt.pcolor(d,r,qim)
-    #plt.pcolor(d, r, qim, cmap='jet', vmin=0., vmax=3.8e-9)
+    qim = obj.quad_image_model(x0, y0, amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl)
+    qim -= nbkg
+    qim *= ZP_flx
+    #plt.pcolor(xg-x,yg-y,qim, cmap='jet', vmin=0., vmax=3.8e-9)
+    plt.pcolor(r,d,qim, cmap='jet', vmin=0., vmax=3.8e-9)
+    cb = plt.colorbar()
+    plt.plot([min_ra,max_ra], [0.,0.], 'k--')
+    plt.plot([0.,0.], [min_dec,max_dec], 'k--')
     plt.axis('equal')
-    plt.xlim(ra+1.5e-3, ra-1.5e-3)
-    plt.ylim(dec-1.5e-3, dec+1.5e-3)
-    plt.plot([ra-1.5e-3,ra+1.5e-3], [dec,dec], 'k--')
-    plt.plot([ra,ra], [dec-1.5e-3,dec+1.5e-3], 'k--')
-    #d, r = self.bigw.wcs_pix2world(xg-dx,yg-dy, 1)
-    #plt.colorbar()
-    plt.axis('equal')
-    plt.xlim(ra+1.5e-3, ra-1.5e-3)
-    plt.ylim(dec-1.5e-3, dec+1.5e-3)
+    plt.xlim(max_ra, min_ra)
+    plt.ylim(min_dec, max_dec)
     y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
     ax2.yaxis.set_major_formatter(y_formatter)
     x_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
     ax2.xaxis.set_major_formatter(x_formatter)
+    plt.xticks(rotation=30)
+    plt.xlabel('$\Delta$RA,  arcseconds')
+    plt.ylabel('$\Delta$Dec, arcseconds')
+    #plt.title('Model')
+    ax2.text(3.8, 3.5, 'Model', fontsize=30, color='white', fontweight='bold')
+
+    circle1=plt.Circle((3,-3),fwhm/2.,color='white', fill=False, linewidth=3, linestyle='dashed')
+    plt.gcf().gca().add_artist(circle1)
+    #plt.circles(3, -3, fwhm/2., alpha=1, lw=5, edgecolor='white', transform=ax2.transAxes)
 
     ax3 = plt.subplot(3,2,6)
-    plt.pcolor(d,r,vals0-qim)
+    #plt.pcolor(xg-x,yg-y,vals-qim)
+    plt.pcolor(r,d,vals-qim, vmin=-5.5e-10, vmax=5.5e-10)
+    cb = plt.colorbar()
+    plt.plot([min_ra,max_ra], [0.,0.], 'k--')
+    plt.plot([0.,0.], [min_dec,max_dec], 'k--')
     plt.axis('equal')
-    plt.xlim(ra+1.5e-3, ra-1.5e-3)
-    plt.ylim(dec-1.5e-3, dec+1.5e-3)
-    plt.plot([ra-1.5e-3,ra+1.5e-3], [dec,dec], 'k--')
-    plt.plot([ra,ra], [dec-1.5e-3,dec+1.5e-3], 'k--')
-    #d, r = self.bigw.wcs_pix2world(xg-dx,yg-dy, 1)
-    #plt.colorbar()
-    plt.axis('equal')
-    plt.xlim(ra+1.5e-3, ra-1.5e-3)
-    plt.ylim(dec-1.5e-3, dec+1.5e-3)
+    plt.xlim(max_ra, min_ra)
+    plt.ylim(min_dec, max_dec)
     y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
     ax3.yaxis.set_major_formatter(y_formatter)
     x_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
     ax3.xaxis.set_major_formatter(x_formatter)
+    plt.xticks(rotation=30)
+    plt.xlabel('$\Delta$RA,  arcseconds')
+    plt.ylabel('$\Delta$Dec, arcseconds')
+    ax3.text(3.8, 3.5, 'Residuals', fontsize=30, color='black', fontweight='bold')
+
+    #plt.title('Residuals')
+
     
   def image_piece(self,ra, dec, pixels):
     x,y = self.bigw.wcs_world2pix(ra,dec,1)
