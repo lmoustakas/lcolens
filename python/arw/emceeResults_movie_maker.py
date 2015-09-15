@@ -36,44 +36,6 @@ def read_emcee_chains(samples):
 	nbkgCh  = condition_chain(8)
 	return x0Ch, y0Ch, amp1Ch, amp2Ch, amp3Ch, amp4Ch, alphaCh, betaCh, nbkgCh
 
-def quad_image_model(FM, x0, y0, amp0, amp1, amp2, amp3, alpha, beta, N_bkg, N_pix=31, flip=False):
-    #print len(theta), N_bkg, N_pix
-
-    # NEED A GOOD MODEL HERE
-    scale = 0.99*0.467/FM.hdulist[0].header['PIXSCALE']
-    '''
-    x1 = 14.3*scale + x0
-    y1 = 13.2*scale + y0
-    x2 = 15.6*scale + x0
-    y2 = 18.4*scale + y0
-    x3 = 13.1*scale + x0
-    y3 = 16.4*scale + y0
-    x4 = 17.6*scale + x0
-    y4 = 15.3*scale + y0
-    '''
-    x1 = (14.3 + x0)*scale
-    y1 = (13.2 + y0)*scale
-    x2 = (15.6 + x0)*scale
-    y2 = (18.4 + y0)*scale
-    x3 = (13.1 + x0)*scale
-    y3 = (16.4 + y0)*scale
-    x4 = (17.6 + x0)*scale
-    y4 = (15.3 + y0)*scale
-    
-
-    xg, yg = np.mgrid[:N_pix,:N_pix]
-
-    #print x0,y0, amp0
-    p0  =  AL.twoD_Moffat((xg, yg), amp0, alpha, beta, x1, y1, 0)
-    p1  =  AL.twoD_Moffat((xg, yg), amp1, alpha, beta, x2, y2, 0)
-    p2  =  AL.twoD_Moffat((xg, yg), amp2, alpha, beta, x3, y3, 0)
-    p3  =  AL.twoD_Moffat((xg, yg), amp3, alpha, beta, x4, y4, 0)
-    model = (p0+p1+p2+p3).reshape(N_pix, N_pix)
-    if(flip):
-    	model = np.fliplr(model)
-    model+=N_bkg
-    return model
-
 
 mjd_obs=[]
 m1 = []
@@ -132,8 +94,9 @@ input_files = []
 det_cov = []
 pxscl = []
 #rand_vals = arange(np.random.randint(0,len(fnames))-5,5)
-#rand_vals = np.random.randint(0,len(fnames),10)
+#rand_vals = np.random.randint(0,len(fnames),5)
 #rand_vals = sort(rand_vals)
+#for k in [30, 80,90,100, 150, 210]:
 #for k in rand_vals:
 for k in range(0,len(fnames)):
 	results = np.load(fnames[k])

@@ -181,8 +181,30 @@ class FITSmanager:
     return False
 
   def plot_image_movie(self, ra, dec, ax1, ax2, ax3, ZP_flx, theta, dx=0., dy=0.,Npx=31, out='out'):
+    dx=0.
+    dy=0.
     # GET THE QUASAR IMAGE
     x0, y0, amp1, amp2, amp3, amp4, alpha, beta, nbkg = theta
+    obj = SourceImage(self, ra, dec, Npx)
+    fl = self.isFlipped(ra,dec)
+    y_im, x_im = obj.quad_image_pix_ref(x0, y0, fl)
+    print '\t flipped', fl
+    print x_im, y_im
+    if(fl):
+       dx = 17.5 - x_im[0]
+       x_im -= x_im[0]-17.5
+    if(not fl):
+       dx    = 12. - x_im[0]
+       x_im -= x_im[0]-12.
+    dy = 14.-y_im[0]
+    y_im -= y_im[0]-14.
+
+    print '\t dx, dy',dx, dy
+
+    qim_ref = obj.quad_image_model(0., 0., amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl)
+
+    ra_im, dec_im = obj.quad_image_ref(-1.1, -0.5) # in arcseconds
+    
 
     x,y = self.bigw.wcs_world2pix(ra,dec,1) 
     #x = x+x0
@@ -193,15 +215,26 @@ class FITSmanager:
     r = (r-ra) * np.cos(dec*np.pi/180.)*3600.
     fwhm = alpha*2.*np.sqrt(2.**(1/beta)-1.)*float(self.hdulist[0].header['PIXSCALE'])
 
-    vals = self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+    ra_im2, dec_im2 = self.bigw.wcs_pix2world(x_im+x-15, y_im+y-15, 1)
+    ra_im2 = (ra_im2-ra)* np.cos(dec*np.pi/180.)*3600.
+    dec_im2 = (dec_im2-dec)*3600.
+    print '*',x_im, y_im
+    print ra_im2, dec_im2
 
-    vals0 = vals.copy()
+
+    vals = self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+    #vals = qim_ref
     min_ra = -4.
     max_ra = 4.
     min_dec = -4.
     max_dec = 4.
     vals -= nbkg
     vals*=ZP_flx
+
+    #template = 0.*vals.copy()
+    #for i in range(0,4):
+    #    template[int(np.rint(y_im[i])-y+(Npx-1)/2),int(np.rint(x_im[i])-x+(Npx-1)/2)]=3.e-9
+    vals0 = vals.copy()
     #print xg.shape, yg.shape, vals.shape
     ax1 = plt.subplot(3,2,2)
     #plt.pcolor(xg-x, yg-y, vals, cmap='jet', vmin=0., vmax=3.8e-9)
@@ -209,6 +242,9 @@ class FITSmanager:
     cb = plt.colorbar()
     plt.plot([min_ra,max_ra], [0.,0.], 'k--')
     plt.plot([0.,0.], [min_dec,max_dec], 'k--')
+    print ra_im, dec_im
+    #plt.plot(ra_im, dec_im, 'ro')
+    #plt.plot(ra_im2, dec_im2, 'ko')
     plt.axis('equal')
     plt.xlim(max_ra, min_ra)
     plt.ylim(min_dec, max_dec)
@@ -230,8 +266,6 @@ class FITSmanager:
     #r2 = (r2-ra) * np.cos(dec*np.pi/180.)*3600.
 
     ax2 = plt.subplot(3,2,4)
-    obj = SourceImage(self, ra, dec, Npx)
-    fl = self.isFlipped(ra,dec)
     qim = obj.quad_image_model(x0, y0, amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl)
     qim -= nbkg
     qim *= ZP_flx
@@ -509,6 +543,31 @@ class SourceImage:
     #plt.ylim(-15.,15.)
     #plt.xlabel('Pixel Distance from Fitted Peak')
     plt.xlabel(r'$\chi_p$')
+
+  def quad_image_ref(self, ra_offset, dec_offset):
+	# values from Kochanek 2006
+	ra  = np.array([0.,  2.467, 1.476,  0.939])
+	dec = np.array([0., -0.603, 0.553, -1.614])
+	ra*=-1.
+	return ra-ra_offset, dec-dec_offset
+
+  def quad_image_pix_ref(self, x0, y0, flip):
+    # NEED A GOOD MODEL HERE
+    scale = 0.99*0.467/self.FM.hdulist[0].header['PIXSCALE']
+    x1 = (14.3 + x0)*scale
+    y1 = (13.2 + y0)*scale
+    x2 = (15.6 + x0)*scale
+    y2 = (18.4 + y0)*scale
+    x3 = (13.1 + x0)*scale
+    y3 = (16.4 + y0)*scale
+    x4 = (17.6 + x0)*scale
+    y4 = (15.3 + y0)*scale
+    x_vals = np.array([x1,x2,x3,x4]) 
+    y_vals = np.array([y1,y2,y3,y4])
+    if(flip):
+    	y_vals = 15.-1.*(y_vals-15.)
+    return x_vals, y_vals
+
   def quad_image_model(self, x0, y0, amp0, amp1, amp2, amp3, alpha, beta, N_bkg, N_pix, flip):
     #print len(theta), N_bkg, N_pix
 
