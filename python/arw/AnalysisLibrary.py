@@ -1047,15 +1047,20 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   weight = 1./np.sqrt(np.array(m_I_unc)**2+np.array(m_APASS_unc)**2)
   # ESTIMATE THE MEAN AND WEIGHTED RMS OF THE ZERO POINTS 
   #ZP_mean = sum(ZP)/len(ZP)
-  #ZP_rms = np.sqrt(sum(ZP**2)/len(ZP) - ZP_mean**2)
+  ZP_rms = np.sqrt(sum(ZP**2)/len(ZP) - sum(ZP)/len(ZP)**2)
   ZP_mean = sum(weight*ZP)/sum(weight)
-  ZP_rms = np.sqrt(sum(weight*(ZP-ZP_mean)**2)/sum(weight))
+  ZP_wrms = np.sqrt(sum(weight*(ZP-ZP_mean)**2)/sum(weight))
   print 'Ensable APASS Uncertainties: ZP_rms, m_I_unc, m_APASS_unc',ZP_rms, np.sqrt(np.sum(np.array(m_I_unc)**2/len(m_I))), np.sqrt(np.sum(np.array(m_APASS_unc)**2/len(m_APASS)))
   #print ZP_mean, ZP_rms
   # WEIGHTED RMS
   # ESTIMATE THE WEIGHTED MEAN OF SEEING PARAMETERS
   alpha_mean = sum(weight*alpha)/sum(weight)
   beta_mean  = sum(weight*beta)/sum(weight)
+  
+  alpha_wrms = np.sqrt(sum(weight*(alpha-alpha_mean)**2)/sum(weight))
+  beta_wrms  = np.sqrt(sum(weight*(beta-beta_mean)**2)/sum(weight))
+  alpha_beta_corr  = np.sqrt(sum(weight*(alpha-alpha_mean)*(beta-beta_mean))/sum(weight))/np.sqrt(alpha_wrms*beta_wrms)
+  #print 'seeing',alpha_mean, alpha_wrms, beta_mean, beta_wrms, alpha_beta_corr
 
   if(display>0):
   	# SORT BY INCREASING MAGNITUDE FOR EASE OF VIEWING
@@ -1109,7 +1114,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
 	plt.xlim(np.min(m_APASS_ord)-0.5, np.max(m_APASS_ord)+0.5)
 	plt.suptitle(FM.fits_file_name.split('/')[-1], fontsize=18)
 	plt.savefig(out+'.png', dpi=50)
-  return ZP_mean, ZP_rms, alpha_mean, beta_mean
+  return ZP_mean, ZP_wrms, ZP_rms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr
 
 
 def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileTag='out'):
@@ -1375,7 +1380,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileT
   '''
 
 #def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, m1, m2, m3, m4, me4, N_px, outputFileTag='out'):
-def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, m1, m2, m3, m4, N_px, outputFileTag='out'):
+def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, beta_err, alpha_beta_corr_coeff, m1, m2, m3, m4, N_px, outputFileTag='out'):
   print '\n\t####################################'
   print   '\t# STARTING EMCEE ###################'
   print   '\t####################################\n'
@@ -1391,6 +1396,13 @@ def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, m1, m2, m3, 
 
   #obj = SourceImage(FM, ra_qsr, dec_qsr, N_px)
 
+  seeing_cov = np.array([[alpha_err**2, alpha_beta_corr_coeff*alpha_err*beta_err],
+			 [ alpha_beta_corr_coeff*alpha_err*beta_err, beta_err**2]])
+  det = np.linalg.det(seeing_cov)
+  seeing_icov = np.linalg.inv(seeing_cov)
+  print 'seeing_cov', seeing_cov
+  print 'seeing_det', det
+  print 'seeing_icov', seeing_icov
   def lnprior(_theta):
     _x0, _y0, \
     _amplitude0, \
@@ -1411,7 +1423,9 @@ def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, m1, m2, m3, 
 	and _alpha>0. and _alpha < 100.*alpha\
 	and _beta>0. and  _beta  < 100.*beta \
 	and _N_bkg>0. and _N_bkg < 100.*N_bkg_guess:
-	  return 0.0  
+          seeing_diff = np.array([alpha-_alpha, beta-_beta])
+          lnp = -np.dot( seeing_diff, np.dot(seeing_icov,seeing_diff) )/2.0
+	  return lnp
     else:
         return -np.inf
 

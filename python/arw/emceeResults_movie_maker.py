@@ -9,8 +9,8 @@ import AnalysisLibrary as AL
 rcParams['font.size']=24
 rcParams['legend.fontsize']=24
 rcParams['figure.facecolor']='white'
-#fnames = glob.glob('image_*_results.npz')
-fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_*_results.npz')
+fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_*_results.npz') # no priors of seeing imposed
+#fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20150916/npzfiles/image_*_results.npz') # priors of seeing imposed
 #fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_21*_results.npz')
 
 
@@ -49,7 +49,7 @@ me4 = []
 maxChi = []
 chiSq = []
 readnoise=[]
-readnoise_error=[]
+#readnoise_error=[]
 site=[]
 ZP_mean=[]
 ZP_rms=[]
@@ -115,12 +115,12 @@ for k in range(0,len(fnames)):
 	maxChi.append(results['maxChi'])
 	chiSq.append(results['chiSq'])
 	readnoise.append(results['readnoise'])
-	readnoise_error.append(results['readnoise_error'])
+	#readnoise_error.append(results['readnoise_error'])
 	site.append(str(results['inputFile']).split('/')[-1][0:3])
 	ZP_mean.append(results['ZP_mean'])
 	ZP_rms.append(results['ZP_rms'])
 	ZP_wrms.append(results['ZP_wrms'])
-	ZP_std.append(results['ZP_std'])
+	#ZP_std.append(results['ZP_std'])
 	filter.append(results['filter'])
 	alpha.append(results['APASS_alpha'])
 	beta.append(results['APASS_beta'])
@@ -257,7 +257,7 @@ for k in range(0,len(fnames)):
         #ylim(dec_qsr-1.5e-3, dec_qsr+1.5e-3)
 
 	ZP_flux       = np.array(AL.magnitude2flux(np.array(ZP_mean)))
-	ZP_flux_std   = np.array(AL.magErr2fluxErr(np.array(ZP_mean), np.array(ZP_std)))
+	#ZP_flux_std   = np.array(AL.magErr2fluxErr(np.array(ZP_mean), np.array(ZP_std)))
 	ZP_flux_wrms  = np.array(AL.magErr2fluxErr(np.array(ZP_mean), np.array(ZP_wrms)))
 	flux1 = np.array(ZP_flux*LC1Emcee)
 	flux1UpperError=np.array(flux1*np.sqrt(np.array(LC1EmceeUpperError)**2/np.array(LC1Emcee)**2 + ZP_flux_wrms**2/ZP_flux**2))
@@ -323,25 +323,30 @@ for k in range(0,len(fnames)):
         ax.yaxis.set_major_formatter(y_formatter)
 	ylabel('Seeing, arcseconds')
 
+
+        mag1_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib1))
+        mag2_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib2))
+        mag3_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib3))
+        mag4_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib4))
         # estimate covariance matrix
-        mu1 = np.mean(amp1Ch)
-        mu2 = np.mean(amp2Ch)
-        mu3 = np.mean(amp3Ch)
-        mu4 = np.mean(amp4Ch)
+        mu1 = np.mean(mag1_array)
+        mu2 = np.mean(mag2_array)
+        mu3 = np.mean(mag3_array)
+        mu4 = np.mean(mag4_array)
         cov = zeros((4,4))
-        cov[0][0] = np.mean((amp1Ch - mu1)**2)
-        cov[1][1] = np.mean((amp2Ch - mu2)**2)
-        cov[2][2] = np.mean((amp3Ch - mu3)**2)
-        cov[3][3] = np.mean((amp4Ch - mu4)**2)
-        cov[0][1] = np.mean((amp1Ch - mu1)*(amp2Ch - mu2))
-        cov[0][2] = np.mean((amp1Ch - mu1)*(amp3Ch - mu3))
-        cov[0][3] = np.mean((amp1Ch - mu1)*(amp4Ch - mu4))
+        cov[0][0] = np.mean((mag1_array - mu1)**2)
+        cov[1][1] = np.mean((mag2_array - mu2)**2)
+        cov[2][2] = np.mean((mag3_array - mu3)**2)
+        cov[3][3] = np.mean((mag4_array - mu4)**2)
+        cov[0][1] = np.mean((mag1_array - mu1)*(mag2_array - mu2))
+        cov[0][2] = np.mean((mag1_array - mu1)*(mag3_array - mu3))
+        cov[0][3] = np.mean((mag1_array - mu1)*(mag4_array - mu4))
         cov[1][0] = cov[0][1]
-        cov[1][2] = np.mean((amp2Ch - mu2)*(amp3Ch - mu3))
-        cov[1][3] = np.mean((amp2Ch - mu2)*(amp4Ch - mu4))
+        cov[1][2] = np.mean((mag2_array - mu2)*(mag3_array - mu3))
+        cov[1][3] = np.mean((mag2_array - mu2)*(mag4_array - mu4))
         cov[2][0] = cov[0][2]
         cov[2][1] = cov[1][2]
-        cov[2][3] = np.mean((amp3Ch - mu3)*(amp4Ch - mu4))
+        cov[2][3] = np.mean((mag3_array - mu3)*(mag4_array - mu4))
         cov[3][0] = cov[0][3]
         cov[3][1] = cov[1][3]
         cov[3][2] = cov[2][3]
@@ -351,21 +356,22 @@ for k in range(0,len(fnames)):
         icov_det = np.linalg.det(icov)
         print '\t','***** ICOV DET ****%1.2e'%icov_det
         det_cov.append(cov_det)
-
+        print np.mean(mag1), np.sqrt(np.mean((mag1 - mu1)**2)), np.sqrt(cov_det)**(1./4.)
+	#exit()
         ax=subplot(6,2,5)
         for nn in range(0,len(mjd_obs)):
             if 'lsc' in input_files[nn]:
-	       plt.plot([mjd_obs[nn] - mjd0], [np.log10(det_cov[nn])], 'bs')
+	       plt.plot([mjd_obs[nn] - mjd0], [np.power(np.sqrt(det_cov[nn]),1./4.)], 'bs')
             if 'cpt' in input_files[nn]:
-	       plt.plot([mjd_obs[nn] - mjd0], [np.log10(det_cov[nn])], 'r^')
+	       plt.plot([mjd_obs[nn] - mjd0], [np.power(np.sqrt(det_cov[nn]),1./4.)], 'r^')
             if 'coj' in input_files[nn]:
-	       plt.plot([mjd_obs[nn] - mjd0], [np.log10(det_cov[nn])], 'go')
+	       plt.plot([mjd_obs[nn] - mjd0], [np.power(np.sqrt(det_cov[nn]),1./4.)], 'go')
 	#plt.plot(mjd_obs - mjd0, np.log10(np.array(det_cov)), 'ro')
         plt.xlim(0.,2.3)
-        plt.ylim(8,11)
+        plt.ylim(0,0.3)
         y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
         ax.yaxis.set_major_formatter(y_formatter)
-	ylabel('log$_{10}$ det $\Sigma$')
+	ylabel('$\sqrt{|\Sigma|}^{1/4}$')
         xlabel('Days Since MJD %1.0f'%mjd0)
 
 	'''
@@ -458,7 +464,7 @@ maxChi=array(maxChi)
 chiSq=array(chiSq)
 
 ZP_mean = np.array(ZP_mean)
-ZP_std = np.array(ZP_std)
+#ZP_std = np.array(ZP_std)
 ZP_wrms = np.array(ZP_wrms)
 
 amp1Emcee = np.array(amp1Emcee)
@@ -512,13 +518,13 @@ for k in range(0,len(site)):
 
 	if(site[k]=='lsc'):
 		p1, = plot(mjd_obs[k] - mjd0, readnoise[k], 'bo', label='lsc')
-		errorbar(mjd_obs[k] - mjd0, readnoise[k], yerr=readnoise_error[k], fmt='b,', alpha=0.5)
+		#errorbar(mjd_obs[k] - mjd0, readnoise[k], yerr=readnoise_error[k], fmt='b,', alpha=0.5)
 	if(site[k]=='cpt'):
 		p2, = plot(mjd_obs[k] - mjd0, readnoise[k], 'go', label='cpt')
-		errorbar(mjd_obs[k] - mjd0, readnoise[k], yerr=readnoise_error[k], fmt='g,', alpha=0.5)
+		#errorbar(mjd_obs[k] - mjd0, readnoise[k], yerr=readnoise_error[k], fmt='g,', alpha=0.5)
 	if(site[k]=='coj'):
 		p3, = plot(mjd_obs[k] - mjd0, readnoise[k], 'ro', label='coj')
-		errorbar(mjd_obs[k] - mjd0, readnoise[k], yerr=readnoise_error[k], fmt='r,', alpha=0.5)
+		#errorbar(mjd_obs[k] - mjd0, readnoise[k], yerr=readnoise_error[k], fmt='r,', alpha=0.5)
 try:
 	legend((p1,p2,p3), ('lsc', 'cpt', 'coj'), loc=4, numpoints=1)
 except:
@@ -577,7 +583,9 @@ ylim(0.,5.5)
 #plot(np.ma.masked_where(site=='cpt',mjd_obs) - mjd0, np.ma.masked_where(site=='cpt',readnoise), 'go')
 
 figure(figsize=(8,12))
+'''
 for k in range(0,len(mjd_obs)):
+
   col = 'r'
   if(filter[k]=='gp'):
   	col='g'
@@ -592,7 +600,7 @@ for k in range(0,len(mjd_obs)):
   grid(True)
   subplot(313)
   plot(mjd_obs[k] - mjd0, ZP_std[k], 'o', color=col)  
-
+'''
 subplot(311)
 gca().invert_yaxis()
 ylabel('ZP Weighted Mean, mag.')
@@ -647,7 +655,7 @@ xlabel('Days Since mjd %1.0f'%(mjd0))
 subplots_adjust(left=0.2)
 
 ZP_flux       = AL.magnitude2flux(ZP_mean)
-ZP_flux_std   = AL.magErr2fluxErr(ZP_mean, ZP_std)
+#ZP_flux_std   = AL.magErr2fluxErr(ZP_mean, ZP_std)
 ZP_flux_wrms  = AL.magErr2fluxErr(ZP_mean, ZP_wrms)
 flux1 = np.array(ZP_flux*LC1Emcee)
 flux1UpperError=np.array(flux1*np.sqrt(LC1EmceeUpperError**2/LC1Emcee**2 + ZP_flux_wrms**2/ZP_flux**2))
