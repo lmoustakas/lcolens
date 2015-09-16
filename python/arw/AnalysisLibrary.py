@@ -257,7 +257,11 @@ class FITSmanager:
     #plt.title('Data')
     plt.xlabel('$\Delta$RA,  arcseconds')
     plt.ylabel('$\Delta$Dec, arcseconds')
-    ax1.text(3.8, 3.5, 'Data', fontsize=30, color='white', fontweight='bold')
+    ax1.text( 3.8,  3.5, 'Data', fontsize=30, color='white', fontweight='bold')
+    ax1.text( 3.0,  0.0, 'M1', fontsize=30, color='white', fontweight='bold')
+    ax1.text(-2.0, -0.5, 'M2', fontsize=30, color='white', fontweight='bold')
+    ax1.text( 0.0,  2.0, 'S1', fontsize=30, color='white', fontweight='bold')
+    ax1.text(0.5, -2.75, 'S2', fontsize=30, color='white', fontweight='bold')
 
     #x2,y2 = self.bigw.wcs_world2pix(ra,dec,1) 
     #yg2, xg2 =      np.mgrid[y2-(Npx-1)/2:y2+(Npx-1)/2+1,x2-(Npx-1)/2:x2+(Npx-1)/2+1]

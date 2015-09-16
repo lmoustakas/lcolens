@@ -244,18 +244,7 @@ for k in range(0,len(fnames)):
         #dx = np.mean(x0Ch)
 	#dy = np.mean(y0Ch)
         theta = [np.mean(x0Ch),np.mean(y0Ch),np.mean(amp1Ch),np.mean(amp2Ch),np.mean(amp3Ch),np.mean(amp4Ch), np.mean(alphaCh), np.mean(betaCh), np.mean(nbkgCh)]
-        dx = 0.
-        dy = 0.
-        if 'lsc' in fnm:
-	   dx = +1.5
-	   dy = -0.5
-        if 'cpt' in fnm:
-	   dx = -1.5
-	   dy = -0.5
-        if 'coj' in fnm:
-	   dx = -1.5
-	   dy = -0.5
-	FM.plot_image_movie(ra_qsr, dec_qsr, ax1, ax2, ax3, ZP_flx, theta, dx=dx, dy=dy, Npx=31)
+	FM.plot_image_movie(ra_qsr, dec_qsr, ax1, ax2, ax3, ZP_flx, theta, Npx=31)
     	#plt.xlabel('Right Ascension, deg', fontsize=14)
     	#plt.ylabel('Declination, deg', fontsize=14)
         plt.subplots_adjust(left=0.09)
@@ -305,10 +294,14 @@ for k in range(0,len(fnames)):
         for nn in range(0,len(mjd_obs)):
             if 'lsc' in input_files[nn]:
 	       plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'bs')
-            if 'cpt' in input_files[nn]:
-	       plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'r^')
             if 'coj' in input_files[nn]:
 	       plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'go')
+            if 'cpt' in input_files[nn]:
+	       plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'r^')
+        plt.plot([-1.], [-1.], 'bs', ms=8, label='Chile')
+        plt.plot([-1.], [-1.], 'go', ms=8, label='Australia')
+        plt.plot([-1.], [-1.], 'r^', ms=8, label='S. Africa')
+        plt.legend(loc=(0.17,0.), numpoints=1, fontsize=24, frameon=False, borderaxespad=-0.05, handletextpad=-0.5, columnspacing=-0.5, labelspacing=0., borderpad=-0.05)
         plt.xlim(0.,2.3)
         plt.ylim(2.3,1.0)
         y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
@@ -325,7 +318,7 @@ for k in range(0,len(fnames)):
 	       plt.plot([mjd_obs[nn] - mjd0], [seeing_fwhm[nn]*pxscl[nn]], 'go')
 	#plt.plot(mjd_obs - mjd0, seeing_fwhm, 'ro')
         plt.xlim(0.,2.3)
-        plt.ylim(0.,4.0)
+        plt.ylim(0.,2.75)
         y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
         ax.yaxis.set_major_formatter(y_formatter)
 	ylabel('Seeing, arcseconds')
@@ -388,16 +381,16 @@ for k in range(0,len(fnames)):
 
         ax=subplot(2,2,3)
 	errorbar(mjd_obs - mjd0, mag1-1.0, yerr=(me1Lower, me1Upper), fmt=',', color=[0.5,0.5,0.5])
-	errorbar(mjd_obs[-1:] - mjd0, mag1[-1:]-1.0, yerr=(me1Lower[-1:], me1Upper[-1:]), fmt=',', color='k',elinewidth=3, label='mag1 - 1.0')
+	errorbar(mjd_obs[-1:] - mjd0, mag1[-1:]-1.0, yerr=(me1Lower[-1:], me1Upper[-1:]), fmt=',', color='k',elinewidth=3, label='M1 - 1.0')
  
 	errorbar(mjd_obs - mjd0, mag2-0.5, yerr=(me2Lower, me2Upper), fmt=',', color=[0.2,0.2,0.8])
-	errorbar(mjd_obs[-1:] - mjd0, mag2[-1:]-0.5, yerr=(me2Lower[-1:], me2Upper[-1:]), fmt=',', color='b',elinewidth=3, label='mag2 - 0.5')
+	errorbar(mjd_obs[-1:] - mjd0, mag2[-1:]-0.5, yerr=(me2Lower[-1:], me2Upper[-1:]), fmt=',', color='b',elinewidth=3, label='M2 - 0.5')
  
 	errorbar(mjd_obs - mjd0, mag3, yerr=(me3Lower, me3Upper), fmt=',', color=[0.8,0.2,0.2])
-	errorbar(mjd_obs[-1:] - mjd0, mag3[-1:], yerr=(me3Lower[-1:], me3Upper[-1:]), fmt=',', color='r',elinewidth=3, label='mag3 + 0.0')
+	errorbar(mjd_obs[-1:] - mjd0, mag3[-1:], yerr=(me3Lower[-1:], me3Upper[-1:]), fmt=',', color='r',elinewidth=3, label='S1 + 0.0')
  
 	errorbar(mjd_obs - mjd0, mag4+0.5, yerr=(me4Lower, me4Upper), fmt=',', color=[0.2,0.8,0.2])
-	errorbar(mjd_obs[-1:] - mjd0, mag4[-1:]+0.5, yerr=(me4Lower[-1:], me4Upper[-1:]), fmt=',', color='g',elinewidth=3, label='mag4 + 0.5')
+	errorbar(mjd_obs[-1:] - mjd0, mag4[-1:]+0.5, yerr=(me4Lower[-1:], me4Upper[-1:]), fmt=',', color='g',elinewidth=3, label='S2 + 0.5')
         plt.xlim(0.,2.3)
         plt.ylim(20.3,16.)
         y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
