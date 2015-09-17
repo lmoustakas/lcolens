@@ -9,8 +9,8 @@ import AnalysisLibrary as AL
 rcParams['font.size']=24
 rcParams['legend.fontsize']=24
 rcParams['figure.facecolor']='white'
-fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_*_results.npz') # no priors of seeing imposed
-#fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20150916/npzfiles/image_*_results.npz') # priors of seeing imposed
+#fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_*_results.npz') # no priors of seeing imposed
+fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20150916/npzfiles/image_*_results.npz') # priors of seeing imposed
 #fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_21*_results.npz')
 
 
@@ -100,7 +100,7 @@ pxscl = []
 #for k in rand_vals:
 for k in range(0,len(fnames)):
 	results = np.load(fnames[k])
-        print str(results['inputFile'])
+        #print '\t',str(results['inputFile'])
 	#if('/coj' not in str(results['inputFile'])): continue
 
 	mjd_obs.append(results['mjd_obs'])
@@ -126,14 +126,14 @@ for k in range(0,len(fnames)):
 	beta.append(results['APASS_beta'])
         #if results['chiSq'] > 2. or results['maxChi'] > 5.:
         if (1==1):
-		if(k%20==0): print '\toutFnm\t\tmjd_obs\t\tchiSq\tmaxChi\tinputFile\t\t\t\tm1\tZP_mean\tfilter'
+		if(k%20==0): print 'outFnm\t\tmjd_obs\t\tchiSq\tmaxChi\tinputFile\t\t\t\tm1\tZP_mean\tfilter'
 		print '%s\t%1.3f\t%1.2f\t%1.2f\t%s\t%1.2f\t%1.2f\t%s'%(results['outFileTag'], results['mjd_obs'], results['chiSq'], results['maxChi'], str(results['inputFile']).split('/')[-1], results['m1'], results['ZP_mean'], results['filter'])
         input_files.append(str(results['inputFile']).split('/')[-1])
 	if k==0:
 		print '\t',results.files
 	fnm = str(results['inputFile'])
-	fnm = '/nisushome'+fnm
-	print fnm
+	#fnm = '/nisushome'+fnm
+	print '\t',fnm
 	chain_fnm = fnames[k].replace('results', 'chains')
 	fchain = np.load(chain_fnm)
 	samples = fchain['arr_0']
@@ -211,7 +211,7 @@ for k in range(0,len(fnames)):
 	LC1Emcee.append(parms[1][1])
 	LC1EmceeUpperError.append(parms[1][1]-parms[1][0])
 	LC1EmceeLowerError.append(parms[1][2]-parms[1][1])
-	#parms = lambda v: (v[1], v[2]-v[1], v[1]-v[0]), (np.percentile(light_distrib2, [16, 50, 84],axis=0))
+	parms = lambda v: (v[1], v[2]-v[1], v[1]-v[0]), (np.percentile(light_distrib2, [16, 50, 84],axis=0))
 	#print parms
 	LC2Emcee.append(parms[1][1])
 	LC2EmceeUpperError.append(parms[1][1]-parms[1][0])
@@ -228,33 +228,14 @@ for k in range(0,len(fnames)):
 	LC4EmceeLowerError.append(parms[1][2]-parms[1][1])
 	#show()
         
-	
+	print '\tLCEmcee', LC1Emcee[-1], LC2Emcee[-1], LC3Emcee[-1], LC4Emcee[-1]
         # DECIMAL RA and DEC VALUES OF HE0435-1223
         ra_qsr = (4.+38./60.+14.9/60./60.)/24*360 
         dec_qsr = -12. - (17./60 +14.4/60./60.)
         FM = AL.FITSmanager(fnm) 
     	figure(figsize=(19.,24))
 
-    	ax1=plt.subplot(322)
-    	ax2=plt.subplot(324)
-    	ax3=plt.subplot(326)
-        print '\t',AL.magnitude2flux(results['ZP_mean']),results['ZP_mean']
-	ZP_flx = AL.magnitude2flux(results['ZP_mean'])
-        print '\t','x0,y0',np.mean(x0Ch), np.mean(y0Ch)
-        #dx = np.mean(x0Ch)
-	#dy = np.mean(y0Ch)
-        theta = [np.mean(x0Ch),np.mean(y0Ch),np.mean(amp1Ch),np.mean(amp2Ch),np.mean(amp3Ch),np.mean(amp4Ch), np.mean(alphaCh), np.mean(betaCh), np.mean(nbkgCh)]
-	FM.plot_image_movie(ra_qsr, dec_qsr, ax1, ax2, ax3, ZP_flx, theta, Npx=31)
-    	#plt.xlabel('Right Ascension, deg', fontsize=14)
-    	#plt.ylabel('Declination, deg', fontsize=14)
-        plt.subplots_adjust(left=0.09)
 
-    	#print '\t',FM.fits_file_name
-    	#plt.title(FM.fits_file_name.split('/')[-1])
-
-    	#plt.subplots_adjust(left=0.15, right=1.0)
-        #xlim(ra_qsr-1.5e-3, ra_qsr+1.5e-3)
-        #ylim(dec_qsr-1.5e-3, dec_qsr+1.5e-3)
 
 	ZP_flux       = np.array(AL.magnitude2flux(np.array(ZP_mean)))
 	#ZP_flux_std   = np.array(AL.magErr2fluxErr(np.array(ZP_mean), np.array(ZP_std)))
@@ -285,12 +266,70 @@ for k in range(0,len(fnames)):
 	me4Upper = AL.fluxErr2magErr(flux4, flux4UpperError)
 	me4Lower = AL.fluxErr2magErr(flux4, flux4LowerError)
 
+        mag1_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib1))
+        mag2_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib2))
+        mag3_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib3))
+        mag4_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib4))
+        # estimate covariance matrix
+        mu1 = np.mean(mag1_array)
+        mu2 = np.mean(mag2_array)
+        mu3 = np.mean(mag3_array)
+        mu4 = np.mean(mag4_array)
+        cov = zeros((4,4))
+        cov[0][0] = np.mean((mag1_array - mu1)**2)
+        cov[1][1] = np.mean((mag2_array - mu2)**2)
+        cov[2][2] = np.mean((mag3_array - mu3)**2)
+        cov[3][3] = np.mean((mag4_array - mu4)**2)
+        cov[0][1] = np.mean((mag1_array - mu1)*(mag2_array - mu2))
+        cov[0][2] = np.mean((mag1_array - mu1)*(mag3_array - mu3))
+        cov[0][3] = np.mean((mag1_array - mu1)*(mag4_array - mu4))
+        cov[1][0] = cov[0][1]
+        cov[1][2] = np.mean((mag2_array - mu2)*(mag3_array - mu3))
+        cov[1][3] = np.mean((mag2_array - mu2)*(mag4_array - mu4))
+        cov[2][0] = cov[0][2]
+        cov[2][1] = cov[1][2]
+        cov[2][3] = np.mean((mag3_array - mu3)*(mag4_array - mu4))
+        cov[3][0] = cov[0][3]
+        cov[3][1] = cov[1][3]
+        cov[3][2] = cov[2][3]
+        cov_det = np.linalg.det(cov)
+        print '\t','***** COV DET **** %1.2e'%cov_det
+	icov = np.infty
+        icov_det = np.infty
+	try: 
+        	icov = np.linalg.inv(cov)
+        	icov_det = np.linalg.det(icov)
+        except:
+		print '\t !!!!!!! Could not invert covariance matrix!'
+		exit()
+
+        print '\t','***** ICOV DET ****%1.2e'%icov_det
+        det_cov.append(cov_det)
+        print '\tmag1_array_stats:',np.mean(mag1_array), np.sqrt(np.mean((mag1_array - mu1)**2)), np.sqrt(cov_det)**(1./4.)
+        print '\tmag2_array_stats:',np.mean(mag2_array), np.sqrt(np.mean((mag2_array - mu1)**2)), np.sqrt(cov_det)**(1./4.)
+        print '\tmag3_array_stats:',np.mean(mag3_array), np.sqrt(np.mean((mag3_array - mu1)**2)), np.sqrt(cov_det)**(1./4.)
+        print '\tmag4_array_stats:',np.mean(mag4_array), np.sqrt(np.mean((mag4_array - mu1)**2)), np.sqrt(cov_det)**(1./4.)
+	#exit()
+
         mjd0 = np.floor(np.min(np.array(mjd_obs)))
         seeing_fwhm.append(np.mean(alphaCh)*2.*np.sqrt(2.**(1/np.mean(betaCh))-1.))
         pxscl.append(float(FM.hdulist[0].header['PIXSCALE']))
+
+        if(icov_det==np.infty):
+	    continue
+        print '\tZP_flux, ZP_mean',AL.magnitude2flux(results['ZP_mean']),results['ZP_mean']
+        print '\tx0,y0',np.mean(x0Ch), np.mean(y0Ch)
+    	ax1=plt.subplot(322)
+    	ax2=plt.subplot(324)
+    	ax3=plt.subplot(326)
+	ZP_flx = AL.magnitude2flux(results['ZP_mean'])
+        theta = [np.mean(x0Ch),np.mean(y0Ch),np.mean(amp1Ch),np.mean(amp2Ch),np.mean(amp3Ch),np.mean(amp4Ch), np.mean(alphaCh), np.mean(betaCh), np.mean(nbkgCh)]
+	FM.plot_image_movie(ra_qsr, dec_qsr, ax1, ax2, ax3, ZP_flx, theta, Npx=31)
+        plt.subplots_adjust(left=0.09)
+
         #print '\tPIXSCALE',pxscl
         ax=subplot(6,2,1)
-        print '*********', results['inputFile']
+        print '\t*********', results['inputFile']
         for nn in range(0,len(mjd_obs)):
             if 'lsc' in input_files[nn]:
 	       plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'bs')
@@ -324,41 +363,9 @@ for k in range(0,len(fnames)):
 	ylabel('Seeing, arcseconds')
 
 
-        mag1_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib1))
-        mag2_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib2))
-        mag3_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib3))
-        mag4_array = AL.flux2magnitude(ZP_flux[-1]*np.array(light_distrib4))
-        # estimate covariance matrix
-        mu1 = np.mean(mag1_array)
-        mu2 = np.mean(mag2_array)
-        mu3 = np.mean(mag3_array)
-        mu4 = np.mean(mag4_array)
-        cov = zeros((4,4))
-        cov[0][0] = np.mean((mag1_array - mu1)**2)
-        cov[1][1] = np.mean((mag2_array - mu2)**2)
-        cov[2][2] = np.mean((mag3_array - mu3)**2)
-        cov[3][3] = np.mean((mag4_array - mu4)**2)
-        cov[0][1] = np.mean((mag1_array - mu1)*(mag2_array - mu2))
-        cov[0][2] = np.mean((mag1_array - mu1)*(mag3_array - mu3))
-        cov[0][3] = np.mean((mag1_array - mu1)*(mag4_array - mu4))
-        cov[1][0] = cov[0][1]
-        cov[1][2] = np.mean((mag2_array - mu2)*(mag3_array - mu3))
-        cov[1][3] = np.mean((mag2_array - mu2)*(mag4_array - mu4))
-        cov[2][0] = cov[0][2]
-        cov[2][1] = cov[1][2]
-        cov[2][3] = np.mean((mag3_array - mu3)*(mag4_array - mu4))
-        cov[3][0] = cov[0][3]
-        cov[3][1] = cov[1][3]
-        cov[3][2] = cov[2][3]
-        cov_det = np.linalg.det(cov)
-        print '\t','***** COV DET **** %1.2e'%cov_det
-        icov = np.linalg.inv(cov)
-        icov_det = np.linalg.det(icov)
-        print '\t','***** ICOV DET ****%1.2e'%icov_det
-        det_cov.append(cov_det)
-        print np.mean(mag1), np.sqrt(np.mean((mag1 - mu1)**2)), np.sqrt(cov_det)**(1./4.)
-	#exit()
+
         ax=subplot(6,2,5)
+	ax.set_yscale('log')
         for nn in range(0,len(mjd_obs)):
             if 'lsc' in input_files[nn]:
 	       plt.plot([mjd_obs[nn] - mjd0], [np.power(np.sqrt(det_cov[nn]),1./4.)], 'bs')
@@ -368,11 +375,12 @@ for k in range(0,len(fnames)):
 	       plt.plot([mjd_obs[nn] - mjd0], [np.power(np.sqrt(det_cov[nn]),1./4.)], 'go')
 	#plt.plot(mjd_obs - mjd0, np.log10(np.array(det_cov)), 'ro')
         plt.xlim(0.,2.3)
-        plt.ylim(0,0.3)
+        plt.ylim(0.01,0.5)
         y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
         ax.yaxis.set_major_formatter(y_formatter)
-	ylabel('$\sqrt{|\Sigma|}^{1/4}$')
+	ylabel('$(\sqrt{|\Sigma|})^{1/4}$, mag')
         xlabel('Days Since MJD %1.0f'%mjd0)
+        yticks([0.01, 0.03, 0.10, 0.3])
 
 	'''
         ax=subplot(6,2,5)
@@ -447,6 +455,7 @@ for k in range(0,len(fnames)):
 
 	results.close()
 
+exit()
 
 #hist(fwhmCh)
 
