@@ -451,7 +451,7 @@ for k in range(0,len(fnames)):
 	ylabel('Flux Image 4')
 	'''
 
-    	plt.savefig('%s.png'%results['outFileTag'], dpi=50)
+    	plt.savefig('movie_%s.png'%results['outFileTag'], dpi=50)
 
 	results.close()
 
