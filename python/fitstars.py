@@ -112,3 +112,4 @@ def fitstars(imagedata, x0s, y0s, readnoise, subnx=31, subny=31, psftype='moffat
     
     # return the best fit parameters
     return popt
+

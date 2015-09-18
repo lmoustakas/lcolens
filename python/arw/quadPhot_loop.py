@@ -63,7 +63,7 @@ if __name__ == "__main__":
 	  #print '\nimage_%s %s'%(num,filename_table['filename'][n])
 	  os.system('./quadPhot.py -i %s -e 1 -o image_%s > run_%s.log'%(filename_table['filename'][n], num, num))
 	  time.sleep(10.)
-	  os.system('mv *_%s*.npz /disk4/romerowo/lcolens_outputs/20150916/npzfiles'%num)
-	  os.system('mv *_%s*.png /disk4/romerowo/lcolens_outputs/20150916/pngfiles'%num)
-	  os.system('mv run_%s.log /disk4/romerowo/lcolens_outputs/20150916/logfiles'%num)
+	  os.system('mv *_%s*.npz /disk4/romerowo/lcolens_outputs/20150917/npzfiles'%num)
+	  os.system('mv *_%s*.png /disk4/romerowo/lcolens_outputs/20150917/pngfiles'%num)
+	  os.system('mv run_%s.log /disk4/romerowo/lcolens_outputs/20150917/logfiles'%num)
 	  

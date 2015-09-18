@@ -16,6 +16,8 @@ import matplotlib
 from scipy import signal
 import emcee
 import triangle
+import psf
+from astroscrappy import detect_cosmics
 
 
 def time_order_fits_files(data_dir):
@@ -61,7 +63,11 @@ class FITSmanager:
     self.fits_file_name = fits_file_name
     self.hdulist = fits.open(fits_file_name)
     #self.hdulist.info()
+    mask, clean = detect_cosmics(self.hdulist[0].data, sigfrac=0.15, sigclip=4, objlim=4, cleantype='idw')
+    #self.hdulist[0].data = np.ma.masked_where(mask==1,self.hdulist[0].data)
+    #self.hdulist[0].data = np.ma.masked_where(self.hdulist[0].data<0.,self.hdulist[0].data)
     self.image_data = self.hdulist[0].data
+
     # MULTIPLY BY THE GAIN
     self.image_data *= float(self.hdulist[0].header['GAIN'])
     self.bigw=wcs.WCS(self.hdulist[0].header)
@@ -78,7 +84,6 @@ class FITSmanager:
 		img = self.image_piece(r, d, 31)
 		#img/=float(self.hdulist[0].header['GAIN']) # remove gain correction. read noise is on electrons, not photons ?		
 		count = 0
-		
 		while(np.max(img)>np.median(img)+5.*np.sqrt(np.median(img))):
 			count+=1
 	  		#print 'trial', count
@@ -324,7 +329,7 @@ class FITSmanager:
     if(pixels%2==1):
 	    #print 'odd'
 	    zoom_data = self.image_data[y-(pixels-1)/2:y+(pixels-1)/2+1,x-(pixels-1)/2:x+(pixels-1)/2+1]
-    return zoom_data
+    return np.array(zoom_data)
     #plt.figure()
 
   def get_exposure_time(self):
@@ -335,8 +340,18 @@ class FITSmanager:
 	  self.end_time = datetime.datetime.strptime(t2,"%H:%M:%S.%f")
 	  self.exposure_time = (self.end_time - self.start_time).seconds + (self.end_time - self.start_time).microseconds/1.e6
 	  return self.exposure_time
+#'''
+def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset):
+    #print 'len(x), len(y)', len(x), len(y)
+    PSF_model = psf.moffat_kernel(xo, yo, alpha, beta, nx=len(x), ny=len(y))
+    PSF_model /= np.max(PSF_model)
+    m = amplitude*PSF_model + offset
+    if(alpha<0.): m+=1.e9
+    if(beta<0.): m+=1.e9
+    return m.ravel() 
 
-
+#'''
+'''
 def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset):
   xo = float(xo)
   yo = float(yo)    
@@ -347,8 +362,11 @@ def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset):
   #print 'in Moffat 2D', offset, amplitude, a, amplitude*a
   if(alpha<0.): m+=1.e9
   #print offset
+  print 'm.shape()', m.shape
+  print 'm.ravel()', (m.ravel()).shape
   return m.ravel()
   #return np.array(g) 
+'''
 
 def twoD_elliptical_Moffat((x, y), amplitude, alpha, beta, xo, yo, el, theta, offset):
   xo = float(xo)
@@ -388,9 +406,37 @@ class SourceImage:
     self.dec = dec
     self.pixels = pixels
 
-  def fit_moffat(self, verbose=False):
+  '''
+  def stacked_twoD_Moffat_chi(self, theta, readnoise):
+      chisq=0.
+      for k in range(0,len(self.PSFimage_data))
+  '''
+  def twoD_Moffat_chi(self, theta, readnoise):
+    model = twoD_Moffat((self.xg, self.yg), *theta).reshape(len(self.image),len(self.image))
+    return (self.image-model)/np.sqrt(self.image + readnoise**2)
+
+  def twoD_Moffat_chi_sq(self, theta ):
+    return np.sum(self.twoD_Moffat_chi(theta, self.FM.readnoise)**2)
+
+  def fit_moffat(self, readnoise, verbose=False):
     if(verbose): print 'fitting'
     self.x_max, self.y_max = np.unravel_index(self.image.argmax(), self.image.shape)
+    # estimate fwhm
+    pk = np.max(self.image)
+    fwhm=1.
+    print 'pk, fwhm', pk, fwhm
+    for dx in range(0,15):
+        val_a = self.image[self.x_max + dx, self.y_max]
+        val_b = self.image[self.x_max + dx+1, self.y_max]
+        if(val_a>=pk/2. and val_b<=pk/2.):
+	     fwhm = dx+0.5
+	     break
+    print 'crude fwhm', fwhm
+    print 'x_max, y_max', self.x_max, self.y_max
+    x0_guess = self.x_max - (len(self.image)- 1) / 2 + 0.5
+    y0_guess = self.y_max - (len(self.image)- 1) / 2 + 0.5
+    print 'x_max, y_max', self.x_max, self.y_max
+    print 'x0_guess, y0_guess', x0_guess, y0_guess
     background_count_guess = np.min(self.image)
     #while( np.min(self.image)<0. ):
 	#xm, ym = np.unravel_index(self.image.argmin(), self.image.shape)
@@ -404,9 +450,11 @@ class SourceImage:
 	exit()
     #initial_guess = (image[x_max,y_max],x_max,y_max,3.,3.,0.,1500.)
     #initial_guess_simple = (image[x_max,y_max],x_max,y_max,3.,1500.)
-    guess_alpha = 3.
     guess_beta = 2.
-    self.initial_guess_moffat = (self.image[self.x_max,self.y_max], guess_alpha, guess_beta, self.x_max, self.y_max, background_count_guess)
+    guess_alpha = fwhm/2./(2.0 ** (1.0 / guess_beta) - 1.0) ** 0.5  
+    print 'guess_alpha', guess_alpha
+
+    self.initial_guess_moffat = [self.image[self.x_max,self.y_max]+background_count_guess, guess_alpha, guess_beta, x0_guess, y0_guess, background_count_guess]
     print self.initial_guess_moffat
     if(verbose): print 'initial guess', self.initial_guess_moffat
     if(verbose): print len(self.image)
@@ -415,9 +463,22 @@ class SourceImage:
     self.xg, self.yg = np.mgrid[:len(self.image), :len(self.image)]
     #popt, pcov = opt.curve_fit(twoD_Gaussian, (xg, yg), image.ravel(), p0=initial_guess)
     #popt, pcov = opt.curve_fit(twoD_Gaussian_simple, (xg, yg), image.ravel(), p0=initial_guess_simple)
-    self.fit_ok = True
-    #try:	
+    #try:
+    #results = opt.minimize(self.twoD_Moffat_chi_sq, self.initial_guess_moffat, method='Nelder-Mead')
+    #popt = results.x
+    #exit()	
     popt, pcov = opt.curve_fit(twoD_Moffat, (self.xg, self.yg), self.image.ravel(), p0=self.initial_guess_moffat)
+    print 'popt',popt
+    print 'pcov',np.sqrt(pcov[0][0]), np.sqrt(pcov[0][0])/popt[0], np.linalg.det(pcov)
+    for i in range(0,len(popt)):
+       for j in range(0,len(popt)):
+           pcov[i][j]/=popt[i]*popt[j]
+    print 'stat_cut?', np.power(np.sqrt(np.linalg.det(pcov)), 1./len(popt))
+    print 'stat_cut?', np.sqrt(np.trace(pcov)/len(popt))
+    if ( np.sqrt(np.trace(pcov)/len(popt)) > 0.15):
+        self.fit_ok = False
+    else:
+        self.fit_ok = True
     '''
     except:
       self.fit_ok = False
@@ -445,6 +506,10 @@ class SourceImage:
     self.moffat_fwhm = popt[1]*2.*np.sqrt(2.**(1/popt[2])-1.)
     self.moffat_chi = (self.amp-twoD_Moffat_proj(self.rad, *self.moffat_parms))/np.sqrt(self.amp)
     #self.moffat_chi = (self.amp-twoD_Moffat_proj(self.rad, *self.moffat_parms))/np.sqrt(twoD_Moffat_proj(self.rad, *self.moffat_parms))
+    #print 'shapes', self.image.shape, self.moffat_fit_image.shape
+    print 'readnoise', readnoise
+    self.moffat_chi = (self.image-self.moffat_fit_image)/np.sqrt(self.image + readnoise**2)
+    print '\tmoffat estimate chi_sq', np.sum(self.moffat_chi**2)/len(self.moffat_chi)
     return popt
 
 
@@ -598,12 +663,20 @@ class SourceImage:
     
 
     xg, yg = np.mgrid[:N_pix,:N_pix]
-
+    # Need to recenter for new psf model
+    x1 -= (N_pix-1)/2
+    x2 -= (N_pix-1)/2
+    x3 -= (N_pix-1)/2
+    x4 -= (N_pix-1)/2
+    y1 -= (N_pix-1)/2
+    y2 -= (N_pix-1)/2
+    y3 -= (N_pix-1)/2
+    y4 -= (N_pix-1)/2
     #print x0,y0, amp0
-    p0  =  twoD_Moffat((xg, yg), amp0, alpha, beta, x1, y1, 0)
-    p1  =  twoD_Moffat((xg, yg), amp1, alpha, beta, x2, y2, 0)
-    p2  =  twoD_Moffat((xg, yg), amp2, alpha, beta, x3, y3, 0)
-    p3  =  twoD_Moffat((xg, yg), amp3, alpha, beta, x4, y4, 0)
+    p0  =  twoD_Moffat((xg, yg), amp0, alpha, beta, y1, x1, 0)
+    p1  =  twoD_Moffat((xg, yg), amp1, alpha, beta, y2, x2, 0)
+    p2  =  twoD_Moffat((xg, yg), amp2, alpha, beta, y3, x3, 0)
+    p3  =  twoD_Moffat((xg, yg), amp3, alpha, beta, y4, x4, 0)
     model = (p0+p1+p2+p3).reshape(N_pix, N_pix)
     if(flip):
     	model = np.fliplr(model)
@@ -817,7 +890,7 @@ def fitter(image, p0):
 ####################################################################
 
 def estimate_total_light(obj, N_bkg, sigma_read, display=0, out='out'):
-  obj.fit_moffat()
+  obj.fit_moffat(sigma_read)
   #print obj.moffat_parms
   alpha = obj.moffat_parms[1]
   beta = obj.moffat_parms[2]
@@ -1027,6 +1100,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
 	except:
 		continue
 	if(obj.fit_ok):
+          print 'fit_ok'
 	  m_I.append(magnitude(intg))
 	  m_I_unc.append(2.5/2.3*( (intg_unc/intg) - 0.5*(intg_unc/intg)**2 + 1./3.*(intg_unc/intg)**3 ) )
 	  m_APASS.append(float(APASS_table[filt][k]))
@@ -1131,7 +1205,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileT
   fl = True
   if(r1-r0<0): fl =False
 
-  # SET AN INITIAL AMPLITUDE SCALE, THESE VALUES ARE APPROXIMATED FROM Kochenek, 2005 
+  # SET AN INITIAL AMPLITUDE SCALE, THESE VALUES ARE APPROXIMATED FROM Kochenek, 2006
   amp_scale = np.max(obj.image)
   x0,y0 = 0., 0.
   amp0 = amp_scale
