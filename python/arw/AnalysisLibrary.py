@@ -433,8 +433,8 @@ class SourceImage:
 	     break
     print 'crude fwhm', fwhm
     print 'x_max, y_max', self.x_max, self.y_max
-    x0_guess = self.x_max - (len(self.image)- 1) / 2 + 0.5
-    y0_guess = self.y_max - (len(self.image)- 1) / 2 + 0.5
+    x0_guess = self.x_max - (len(self.image)- 1) / 2 
+    y0_guess = self.y_max - (len(self.image)- 1) / 2
     print 'x_max, y_max', self.x_max, self.y_max
     print 'x0_guess, y0_guess', x0_guess, y0_guess
     background_count_guess = np.min(self.image)
@@ -1135,6 +1135,16 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   beta_wrms  = np.sqrt(sum(weight*(beta-beta_mean)**2)/sum(weight))
   alpha_beta_corr  = np.sqrt(sum(weight*(alpha-alpha_mean)*(beta-beta_mean))/sum(weight))/np.sqrt(alpha_wrms*beta_wrms)
   #print 'seeing',alpha_mean, alpha_wrms, beta_mean, beta_wrms, alpha_beta_corr
+
+  # USE THE MEDIAN AND MEDIAN ABSOLUTE DEVIATION
+  ZP_mean = np.median(ZP)
+  #ZP_wrms = 1.4826*np.median(ZP - ZP_mean)
+  #ZP_rms =  1.4826*np.median(ZP - ZP_mean)
+  alpha_mean = np.median(alpha)
+  beta_mean  = np.median(beta)
+  #alpha_wrms = 1.4826*np.median(alpha - alpha_mean)
+  #beta_wrms  = 1.4826*np.median(beta -  beta_mean)
+  #return ZP_mean, ZP_wrms, ZP_rms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr
 
   if(display>0):
   	# SORT BY INCREASING MAGNITUDE FOR EASE OF VIEWING
