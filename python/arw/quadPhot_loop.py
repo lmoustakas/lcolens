@@ -4,6 +4,8 @@ import time
 
 import argparse
 
+os.nice(20)
+
 if __name__ == "__main__":
 	parser=argparse.ArgumentParser(description='quadPhot_loop routine')
 	parser.add_argument("-s","--start", default=0,type=int)
@@ -63,7 +65,7 @@ if __name__ == "__main__":
 	  #print '\nimage_%s %s'%(num,filename_table['filename'][n])
 	  os.system('./quadPhot.py -i %s -e 1 -o image_%s > run_%s.log'%(filename_table['filename'][n], num, num))
 	  time.sleep(10.)
-	  os.system('mv *_%s*.npz /disk4/romerowo/lcolens_outputs/20150917/npzfiles'%num)
-	  os.system('mv *_%s*.png /disk4/romerowo/lcolens_outputs/20150917/pngfiles'%num)
-	  os.system('mv run_%s.log /disk4/romerowo/lcolens_outputs/20150917/logfiles'%num)
+	  os.system('mv *_%s*.npz /disk4/romerowo/lcolens_outputs/20150918/npzfiles'%num)
+	  os.system('mv *_%s*.png /disk4/romerowo/lcolens_outputs/20150918/pngfiles'%num)
+	  os.system('mv run_%s.log /disk4/romerowo/lcolens_outputs/20150918/logfiles'%num)
 	  

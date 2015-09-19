@@ -63,7 +63,9 @@ class FITSmanager:
     self.fits_file_name = fits_file_name
     self.hdulist = fits.open(fits_file_name)
     #self.hdulist.info()
-    mask, clean = detect_cosmics(self.hdulist[0].data, sigfrac=0.15, sigclip=4, objlim=4, cleantype='idw')
+    # this slows down the code significantly!!!!
+    # make sure masking is an option whose default is false.
+    #mask, clean = detect_cosmics(self.hdulist[0].data, sigfrac=0.15, sigclip=4, objlim=4, cleantype='idw')
     #self.hdulist[0].data = np.ma.masked_where(mask==1,self.hdulist[0].data)
     #self.hdulist[0].data = np.ma.masked_where(self.hdulist[0].data<0.,self.hdulist[0].data)
     self.image_data = self.hdulist[0].data
@@ -340,33 +342,30 @@ class FITSmanager:
 	  self.end_time = datetime.datetime.strptime(t2,"%H:%M:%S.%f")
 	  self.exposure_time = (self.end_time - self.start_time).seconds + (self.end_time - self.start_time).microseconds/1.e6
 	  return self.exposure_time
-#'''
-def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset):
-    #print 'len(x), len(y)', len(x), len(y)
-    PSF_model = psf.moffat_kernel(xo, yo, alpha, beta, nx=len(x), ny=len(y))
-    PSF_model /= np.max(PSF_model)
-    m = amplitude*PSF_model + offset
-    if(alpha<0.): m+=1.e9
-    if(beta<0.): m+=1.e9
-    return m.ravel() 
 
+def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset, pixel_integration = False):
+    #print 'len(x), len(y)', len(x), len(y)
+    if(pixel_integration==True):
+        xo = float(xo - (len(x)- 1) / 2) 
+        yo = float(yo - (len(y)- 1) / 2)
+        PSF_model = psf.moffat_kernel(xo, yo, alpha, beta, nx=len(x), ny=len(y))
+        PSF_model /= np.max(PSF_model)
+        PSF_model = np.rot90(PSF_model)
+        PSF_model = np.flipud(PSF_model)    
+        m = amplitude*PSF_model + offset
+        if(alpha<0.): m+=1.e9
+        if(beta<0.): m+=1.e9
+        return m.ravel() 
+    if(pixel_integration==False):
+        xo = float(xo)
+        yo = float(yo)    
+        a = (beta-1.)/(np.pi*alpha**2)
+        m = offset + amplitude*( 1. + ((x-xo)**2 + (y-yo)**2) / (2.*alpha**2))**(-beta)
+        if(alpha<0.): m+=1.e9
+        if(beta<0.): m+=1.e9
+        return m.ravel()
+ 
 #'''
-'''
-def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset):
-  xo = float(xo)
-  yo = float(yo)    
-  a = (beta-1.)/(np.pi*alpha**2)
-  m = offset + amplitude*( 1. + ((x-xo)**2 + (y-yo)**2) / (2.*alpha**2))**(-beta)
-  #print np.array(g)
-  #print g
-  #print 'in Moffat 2D', offset, amplitude, a, amplitude*a
-  if(alpha<0.): m+=1.e9
-  #print offset
-  print 'm.shape()', m.shape
-  print 'm.ravel()', (m.ravel()).shape
-  return m.ravel()
-  #return np.array(g) 
-'''
 
 def twoD_elliptical_Moffat((x, y), amplitude, alpha, beta, xo, yo, el, theta, offset):
   xo = float(xo)
@@ -433,8 +432,8 @@ class SourceImage:
 	     break
     print 'crude fwhm', fwhm
     print 'x_max, y_max', self.x_max, self.y_max
-    x0_guess = self.x_max - (len(self.image)- 1) / 2 
-    y0_guess = self.y_max - (len(self.image)- 1) / 2
+    x0_guess = self.x_max
+    y0_guess = self.y_max
     print 'x_max, y_max', self.x_max, self.y_max
     print 'x0_guess, y0_guess', x0_guess, y0_guess
     background_count_guess = np.min(self.image)
@@ -663,20 +662,11 @@ class SourceImage:
     
 
     xg, yg = np.mgrid[:N_pix,:N_pix]
-    # Need to recenter for new psf model
-    x1 -= (N_pix-1)/2
-    x2 -= (N_pix-1)/2
-    x3 -= (N_pix-1)/2
-    x4 -= (N_pix-1)/2
-    y1 -= (N_pix-1)/2
-    y2 -= (N_pix-1)/2
-    y3 -= (N_pix-1)/2
-    y4 -= (N_pix-1)/2
     #print x0,y0, amp0
-    p0  =  twoD_Moffat((xg, yg), amp0, alpha, beta, y1, x1, 0)
-    p1  =  twoD_Moffat((xg, yg), amp1, alpha, beta, y2, x2, 0)
-    p2  =  twoD_Moffat((xg, yg), amp2, alpha, beta, y3, x3, 0)
-    p3  =  twoD_Moffat((xg, yg), amp3, alpha, beta, y4, x4, 0)
+    p0  =  twoD_Moffat((xg, yg), amp0, alpha, beta, x1, y1, 0)
+    p1  =  twoD_Moffat((xg, yg), amp1, alpha, beta, x2, y2, 0)
+    p2  =  twoD_Moffat((xg, yg), amp2, alpha, beta, x3, y3, 0)
+    p3  =  twoD_Moffat((xg, yg), amp3, alpha, beta, x4, y4, 0)
     model = (p0+p1+p2+p3).reshape(N_pix, N_pix)
     if(flip):
     	model = np.fliplr(model)
@@ -1138,12 +1128,12 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
 
   # USE THE MEDIAN AND MEDIAN ABSOLUTE DEVIATION
   ZP_mean = np.median(ZP)
-  #ZP_wrms = 1.4826*np.median(ZP - ZP_mean)
-  #ZP_rms =  1.4826*np.median(ZP - ZP_mean)
+  ZP_wrms = 1.4826*np.median(np.abs(ZP - ZP_mean))
+  ZP_rms =  1.4826*np.median(np.abs(ZP - ZP_mean))
   alpha_mean = np.median(alpha)
   beta_mean  = np.median(beta)
-  #alpha_wrms = 1.4826*np.median(alpha - alpha_mean)
-  #beta_wrms  = 1.4826*np.median(beta -  beta_mean)
+  alpha_wrms = 1.4826*np.median(np.abs(alpha - alpha_mean))
+  beta_wrms  = 1.4826*np.median(np.abs(beta -  beta_mean))
   #return ZP_mean, ZP_wrms, ZP_rms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr
 
   if(display>0):
@@ -1399,7 +1389,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileT
   plt.imshow(qim2, interpolation='none')
   plt.colorbar()
   plt.contour(obj.image, colors='k')
-  plt.title('initial model\nw/ data controur')
+  plt.title('initial model\nw/ data contour')
   plt.subplot(335)
   mv = np.max(np.abs(obj.image - qim2))
   plt.imshow(obj.image - qim2, cmap='jet', interpolation='none', vmin=-mv, vmax=mv)

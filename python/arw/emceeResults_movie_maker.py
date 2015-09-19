@@ -5,12 +5,15 @@ from pylab import *
 from astropy.io import ascii
 import glob
 import AnalysisLibrary as AL
+from time import clock
 
 rcParams['font.size']=24
 rcParams['legend.fontsize']=24
 rcParams['figure.facecolor']='white'
 #fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_*_results.npz') # no priors of seeing imposed
-fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20150916/npzfiles/image_*_results.npz') # priors of seeing imposed
+#fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20150916/npzfiles/image_*_results.npz') # priors of seeing imposed
+#fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20150917/npzfiles/image_*_results.npz') # added pixelization and robust ZP (botched)
+fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20150918/npzfiles/image_*_results.npz') # robust ZP, no subsample-integrated pixelization
 #fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_21*_results.npz')
 
 
@@ -99,6 +102,7 @@ pxscl = []
 #for k in [30, 80,90,100, 150, 210]:
 #for k in rand_vals:
 for k in range(0,len(fnames)):
+	start_time = clock()
 	results = np.load(fnames[k])
         #print '\t',str(results['inputFile'])
 	#if('/coj' not in str(results['inputFile'])): continue
@@ -134,8 +138,10 @@ for k in range(0,len(fnames)):
 	fnm = str(results['inputFile'])
 	#fnm = '/nisushome'+fnm
 	print '\t',fnm
+        print '\tloading chains: %1.2f s'%(clock()-start_time)
 	chain_fnm = fnames[k].replace('results', 'chains')
 	fchain = np.load(chain_fnm)
+        print '\testimating means and uncertainties chains: %1.2f s'%(clock()-start_time)
 	samples = fchain['arr_0']
 	x0Ch, y0Ch, amp1Ch, amp2Ch, amp3Ch, amp4Ch, alphaCh, betaCh, nbkgCh = read_emcee_chains(samples)
 	fwhmCh = alphaCh*2.*np.sqrt(2.**(1/betaCh)-1.)
@@ -165,11 +171,14 @@ for k in range(0,len(fnames)):
 	nbkgEmceeUpperError.append(parms[1][1]-parms[1][0])
 	nbkgEmceeLowerError.append(parms[1][2]-parms[1][1])
 
+
 	dirc = '/nisushome/data2/romerowo/lcogt_data/he045-1223_wcs_corrected/'
 	#print '%s'%(fnm)
 	#exit()
+        print '\topening FITS file: %1.2f s'%(clock()-start_time)
 	FM = AL.FITSmanager(fnm)
 	airmass.append(FM.hdulist[0].header['AIRMASS'])
+
 
 	light_distrib1=[]
 	light_distrib2=[]
@@ -177,6 +186,7 @@ for k in range(0,len(fnames)):
 	light_distrib4=[]
 	xg,yg = np.mgrid[:31, :31]
         
+        print 'random resample of light estimated: %1.2f s'%(clock()-start_time)
 	for j in np.random.randint(0,len(x0Ch),1000):
 		#img = quad_image_model(FM, x0Ch[j], y0Ch[j], amp1Ch[j], amp2Ch[j], amp3Ch[j], amp4Ch[j], alphaCh[j], betaCh[j], nbkgCh[j], N_pix=31, flip=False)
 		theta1 = [amp1Ch[j], alphaCh[j], betaCh[j], 15, 15, nbkgCh[j]]
@@ -206,6 +216,7 @@ for k in range(0,len(fnames)):
 	subplot(224)
 	hist(light_distrib4)
 	'''
+        print 'esimating magnitudes: %1.2f s'%(clock()-start_time)
 	parms = lambda v: (v[1], v[2]-v[1], v[1]-v[0]), (np.percentile(light_distrib1, [16, 50, 84],axis=0))
 	#print parms
 	LC1Emcee.append(parms[1][1])
@@ -232,10 +243,9 @@ for k in range(0,len(fnames)):
         # DECIMAL RA and DEC VALUES OF HE0435-1223
         ra_qsr = (4.+38./60.+14.9/60./60.)/24*360 
         dec_qsr = -12. - (17./60 +14.4/60./60.)
-        FM = AL.FITSmanager(fnm) 
+        #FM = AL.FITSmanager(fnm) 
+
     	figure(figsize=(19.,24))
-
-
 
 	ZP_flux       = np.array(AL.magnitude2flux(np.array(ZP_mean)))
 	#ZP_flux_std   = np.array(AL.magErr2fluxErr(np.array(ZP_mean), np.array(ZP_std)))
@@ -275,6 +285,7 @@ for k in range(0,len(fnames)):
         mu2 = np.mean(mag2_array)
         mu3 = np.mean(mag3_array)
         mu4 = np.mean(mag4_array)
+        print 'estimating covariance matrix: %1.2f s'%(clock()-start_time)
         cov = zeros((4,4))
         cov[0][0] = np.mean((mag1_array - mu1)**2)
         cov[1][1] = np.mean((mag2_array - mu2)**2)
@@ -324,6 +335,8 @@ for k in range(0,len(fnames)):
     	ax3=plt.subplot(326)
 	ZP_flx = AL.magnitude2flux(results['ZP_mean'])
         theta = [np.mean(x0Ch),np.mean(y0Ch),np.mean(amp1Ch),np.mean(amp2Ch),np.mean(amp3Ch),np.mean(amp4Ch), np.mean(alphaCh), np.mean(betaCh), np.mean(nbkgCh)]
+        print 'plotting figures: %1.2f s'%(clock()-start_time)
+
 	FM.plot_image_movie(ra_qsr, dec_qsr, ax1, ax2, ax3, ZP_flx, theta, Npx=31)
         plt.subplots_adjust(left=0.09)
 
@@ -452,8 +465,10 @@ for k in range(0,len(fnames)):
 	'''
 
     	plt.savefig('movie_%s.png'%results['outFileTag'], dpi=50)
-
+	FM.hdulist.close()
 	results.close()
+        print 'loop iteration finished: %1.2f s'%(clock()-start_time)
+
 
 exit()
 
