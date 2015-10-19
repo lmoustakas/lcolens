@@ -187,50 +187,49 @@ class FITSmanager:
 	return True
     return False
 
-  def plot_image_movie(self, ra, dec, ax1, ax2, ax3, ZP_flx, theta, dx=0., dy=0.,Npx=31, out='out'):
-    dx=0.
-    dy=0.
+  def plot_image_movie(self, ra, dec, ra_images, dec_images, ax1, ax2, ax3, ZP_flx, theta, dx=0., dy=0.,Npx=31, out='out'):
     # GET THE QUASAR IMAGE
     x0, y0, amp1, amp2, amp3, amp4, alpha, beta, nbkg = theta
-    obj = SourceImage(self, ra, dec, Npx)
     fl = self.isFlipped(ra,dec)
-    y_im, x_im = obj.quad_image_pix_ref(x0, y0, fl)
-    print '\t flipped', fl
-    print x_im, y_im
-    if(fl):
-       dx = 17.5 - x_im[0]
-       x_im -= x_im[0]-17.5
-    if(not fl):
-       dx    = 12. - x_im[0]
-       x_im -= x_im[0]-12.
-    dy = 14.-y_im[0]
-    y_im -= y_im[0]-14.
-
-    print '\t dx, dy',dx, dy
-
-    qim_ref = obj.quad_image_model(0., 0., amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl)
-
-    ra_im, dec_im = obj.quad_image_ref(-1.1, -0.5) # in arcseconds
-    
-
+	# convert quasar and quasar image positions to pixel locations
     x,y = self.bigw.wcs_world2pix(ra,dec,1) 
-    #x = x+x0
-    #y = y+y0
+    print ra_images, dec_images
+    dec_images = dec + dec_images/3600.
+    ra_images = ra   + ra_images/3600.
+    x_images,y_images = self.bigw.wcs_world2pix(ra_images,dec_images,1)
+    x_images -= x - (Npx-1)/2
+    y_images -= y - (Npx-1)/2
+    print x, x_images
+    print y, y_images
+
+	# get data and model images
+    obj = SourceImage(self, ra, dec, Npx)
+    qim = obj.quad_image_model(x0, y0, x_images, y_images, amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl)
+    #qim = obj.quad_image_model(0., 0., x_images, y_images, amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl)
+    '''
+    plt.figure()
+    plt.subplot(121)
+    plt.imshow(obj.image, interpolation='none')
+    plt.contour(obj.image, colors='k')
+    plt.subplot(122)
+    plt.imshow(qim, interpolation='none')
+    plt.contour(obj.image)
+    #plt.contour(self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1])
+    print x,y,x0,y0
+    plt.savefig('tmp.png')
+	'''
+
+
+
     yg, xg =      np.mgrid[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
-    r, d = self.bigw.wcs_pix2world(xg+dx,yg+dy, 1)
+    r, d = self.bigw.wcs_pix2world(xg-y0,yg-x0, 1)
     d = (d-dec)*3600.
     r = (r-ra) * np.cos(dec*np.pi/180.)*3600.
     fwhm = alpha*2.*np.sqrt(2.**(1/beta)-1.)*float(self.hdulist[0].header['PIXSCALE'])
 
-    ra_im2, dec_im2 = self.bigw.wcs_pix2world(x_im+x-15, y_im+y-15, 1)
-    ra_im2 = (ra_im2-ra)* np.cos(dec*np.pi/180.)*3600.
-    dec_im2 = (dec_im2-dec)*3600.
-    print '*',x_im, y_im
-    print ra_im2, dec_im2
-
-
-    vals = self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
-    #vals = qim_ref
+    #vals = self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+    #vals = self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+    vals = obj.image
     min_ra = -4.
     max_ra = 4.
     min_dec = -4.
@@ -249,9 +248,7 @@ class FITSmanager:
     cb = plt.colorbar()
     plt.plot([min_ra,max_ra], [0.,0.], 'k--')
     plt.plot([0.,0.], [min_dec,max_dec], 'k--')
-    print ra_im, dec_im
-    #plt.plot(ra_im, dec_im, 'ro')
-    #plt.plot(ra_im2, dec_im2, 'ko')
+
     plt.axis('equal')
     plt.xlim(max_ra, min_ra)
     plt.ylim(min_dec, max_dec)
@@ -270,14 +267,8 @@ class FITSmanager:
     ax1.text( 0.0,  2.0, 'S1', fontsize=30, color='white', fontweight='bold')
     ax1.text(0.5, -2.75, 'S2', fontsize=30, color='white', fontweight='bold')
 
-    #x2,y2 = self.bigw.wcs_world2pix(ra,dec,1) 
-    #yg2, xg2 =      np.mgrid[y2-(Npx-1)/2:y2+(Npx-1)/2+1,x2-(Npx-1)/2:x2+(Npx-1)/2+1]
-    #r2, d2 = self.bigw.wcs_pix2world(xg2,yg2, 1)
-    #d2 = (d2-dec)*3600.
-    #r2 = (r2-ra) * np.cos(dec*np.pi/180.)*3600.
-
     ax2 = plt.subplot(3,2,4)
-    qim = obj.quad_image_model(x0, y0, amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl)
+    
     qim -= nbkg
     qim *= ZP_flx
     #plt.pcolor(xg-x,yg-y,qim, cmap='jet', vmin=0., vmax=3.8e-9)
@@ -636,62 +627,49 @@ class SourceImage:
     	y_vals = 15.-1.*(y_vals-15.)
     return x_vals, y_vals
 
-  def quad_image_model(self, x0, y0, amp0, amp1, amp2, amp3, alpha, beta, N_bkg, N_pix, flip):
-    #print len(theta), N_bkg, N_pix
+  def quad_image_model(self, x0, y0, x_image, y_image, amp0, amp1, amp2, amp3, alpha, beta, N_bkg, N_pix, flip):
 
-    # NEED A GOOD MODEL HERE
-    scale = 0.99*0.467/self.FM.hdulist[0].header['PIXSCALE']
-    '''
-    x1 = 14.3*scale + x0
-    y1 = 13.2*scale + y0
-    x2 = 15.6*scale + x0
-    y2 = 18.4*scale + y0
-    x3 = 13.1*scale + x0
-    y3 = 16.4*scale + y0
-    x4 = 17.6*scale + x0
-    y4 = 15.3*scale + y0
-    '''
-    x1 = (14.3 + x0)*scale
-    y1 = (13.2 + y0)*scale
-    x2 = (15.6 + x0)*scale
-    y2 = (18.4 + y0)*scale
-    x3 = (13.1 + x0)*scale
-    y3 = (16.4 + y0)*scale
-    x4 = (17.6 + x0)*scale
-    y4 = (15.3 + y0)*scale
-    
+	x1 = y_image[0]+x0
+	x2 = y_image[1]+x0
+	x3 = y_image[2]+x0
+	x4 = y_image[3]+x0
+	y1 = x_image[0]+y0
+	y2 = x_image[1]+y0
+	y3 = x_image[2]+y0
+	y4 = x_image[3]+y0
 
-    xg, yg = np.mgrid[:N_pix,:N_pix]
-    #print x0,y0, amp0
-    p0  =  twoD_Moffat((xg, yg), amp0, alpha, beta, x1, y1, 0)
-    p1  =  twoD_Moffat((xg, yg), amp1, alpha, beta, x2, y2, 0)
-    p2  =  twoD_Moffat((xg, yg), amp2, alpha, beta, x3, y3, 0)
-    p3  =  twoD_Moffat((xg, yg), amp3, alpha, beta, x4, y4, 0)
-    model = (p0+p1+p2+p3).reshape(N_pix, N_pix)
-    if(flip):
-    	model = np.fliplr(model)
-    model+=N_bkg
-    return model
+	xg, yg = np.mgrid[:N_pix,:N_pix]
+	#print x0,y0, amp0
+	p0  =  twoD_Moffat((xg, yg), amp0, alpha, beta, x1, y1, 0)
+	p1  =  twoD_Moffat((xg, yg), amp1, alpha, beta, x2, y2, 0)
+	p2  =  twoD_Moffat((xg, yg), amp2, alpha, beta, x3, y3, 0)
+	p3  =  twoD_Moffat((xg, yg), amp3, alpha, beta, x4, y4, 0)
+	model = (p0+p1+p2+p3).reshape(N_pix, N_pix)
+	#if(flip):
+	#	model = np.fliplr(model)
+	model+=N_bkg
+	return model
 
-  def moffat_chi_vals(self,theta,N_pix, flip):
-    x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg = theta
-    model = self.quad_image_model(x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, N_pix, flip)
-    chi = (self.image - model)/np.sqrt(self.image+self.FM.readnoise**2)
-    #print np.sum(chi*chi)
-    #print x0,y0, N_pix/2
-    # NO NEGATIVE AMPLITUDES ALLOWED!
-    if(amp0<0 or amp1<0 or amp2<0 or amp3<0):
-	return np.inf
-    # THE IMAGE CORRECTION HAS TO BE WITHIN THE BOUNDS OF THE IMAGE!
-    if(x0>N_pix/2 or x0<-N_pix/2 or y0>N_pix/2 or y0<-N_pix/2):
-	return np.inf
-    return chi
+  def moffat_chi_vals(self,theta,N_pix, flip, x_images, y_images):
+	x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg = theta
+	model = self.quad_image_model(x0,y0,x_images,y_images,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, N_pix, flip)
+	chi = (self.image - model)/np.sqrt(self.image+self.FM.readnoise**2)
+	#print np.sum(chi*chi)
+	#print x0,y0, N_pix/2
+	# NO NEGATIVE AMPLITUDES ALLOWED!
+	if(amp0<0 or amp1<0 or amp2<0 or amp3<0):
+		return np.inf
+	# THE IMAGE CORRECTION HAS TO BE WITHIN THE BOUNDS OF THE IMAGE!
+	if(x0>N_pix/2 or x0<-N_pix/2 or y0>N_pix/2 or y0<-N_pix/2):
+		return np.inf
+	return chi
 
-  def moffat_chi_sq(self, theta, N_pix, flip):
-	chisq = np.sum((self.moffat_chi_vals(theta, N_pix, flip))**2)
+  def moffat_chi_sq(self, theta, N_pix, flip, x_images, y_images):
+	chisq = np.sum((self.moffat_chi_vals(theta, N_pix, flip, x_images, y_images))**2)
 	#print '%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e'%(chisq, theta[0], theta[1], theta[2], theta[3], theta[4], theta[5], theta[6], theta[7], theta[8]) 
 	return chisq
 
+  '''
   def moffat_chi_vals2(self,theta,alpha, beta,N_pix, flip):
     x0,y0,amp0,amp1,amp2,amp3, N_bkg = theta
     model = self.quad_image_model(x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, N_pix, flip)
@@ -700,9 +678,9 @@ class SourceImage:
     #print 'self.FM.readnoise', self.FM.readnoise
     #print np.sum(chi*chi)
     return chi
-
   def moffat_chi_sq2(self, theta, alpha, beta, N_pix, flip):
 	return np.sum((self.moffat_chi_vals2(theta, alpha, beta, N_pix, flip))**2)
+  '''
 
 
 ###############################################################################
@@ -1191,7 +1169,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   return ZP_mean, ZP_wrms, ZP_rms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr
 
 
-def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileTag='out'):
+def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileTag='out'):
   # GET THE QUASAR IMAGE
   obj = SourceImage(FM, ra_qsr, dec_qsr, N_px)
 
@@ -1212,9 +1190,19 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileT
   amp1 = amp_scale/1.2
   amp2 = amp_scale/1.5
   amp3 = amp_scale/2.
+  # convert image ra and dec from arcseconds to degrees
+  dec_images = dec_qsr + dec_images/3600.
+  ra_images = ra_qsr   + ra_images/3600.
+  print dec_images
+  print ra_images
+  x_images,y_images = FM.bigw.wcs_world2pix(ra_images,dec_images,1)
+  x_images -= xv - (N_px-1)/2
+  y_images -= yv - (N_px-1)/2
+  print xv, x_images
+  print yv, y_images
   # DEFINE ARRAY OF INPUT PARAMETERS
   # PRODUCE A MODELED IMAGE
-  qim = obj.quad_image_model(x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, len(obj.image), fl)
+  qim = obj.quad_image_model(x0,y0,x_images,y_images,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, len(obj.image), fl)
   # CROSS CORRELATE THE DATA TO THE MODEL TO FIND OUT WHERE IT IS ON THE PIXEL GRID
   corr = signal.correlate2d(obj.image, qim, boundary='symm', mode='same')
   # GET THE LOCATION OF THE CORRELATION PEAK
@@ -1233,31 +1221,31 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileT
   amp2*=np.max(obj.image)/np.max(qim)
   amp3*=np.max(obj.image)/np.max(qim)
   # PRODUCE THE MODEL IMAGE
-  qim2 = obj.quad_image_model(x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl)
+  qim2 = obj.quad_image_model(x0,y0,x_images,y_images,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl)
 
   # PRODUCE THE PARAMETERS FOR THE MODEL IMAGE
   theta2 = [x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg]
   #theta2 = [x0,y0,amp0,amp1,amp2,amp3, N_bkg]
 
   # ESTIMATE ITS DISTRIBUTION OF CHI VALUES
-  chi2 = obj.moffat_chi_vals(theta2, 31, fl)
+  chi2 = obj.moffat_chi_vals(theta2, 31, fl, x_images, y_images)
   #chi2 = obj.moffat_chi_vals2(theta2, alpha, beta,31, fl)
 
   # FIT A MODEL TO THE DATA
-  results = opt.minimize(obj.moffat_chi_sq, theta2,  args=(31, fl), method='Nelder-Mead')
+  results = opt.minimize(obj.moffat_chi_sq, theta2,  args=(31, fl, x_images, y_images), method='Nelder-Mead')
   #results = opt.minimize(obj.moffat_chi_sq2, theta2,  args=(alpha, beta, 31, fl), method='Nelder-Mead')
 
   # I FIND IT PAYS TO KEEP THE MINIMIZATION GOING FOR A FEW MORE ROUNDS
   for k in range(0,4):
-	results = opt.minimize(obj.moffat_chi_sq, results.x,  args=(31, fl), method='Nelder-Mead')
+	results = opt.minimize(obj.moffat_chi_sq, results.x,  args=(31, fl, x_images, y_images), method='Nelder-Mead')
 	#results = opt.minimize(obj.moffat_chi_sq2, results.x,  args=(alpha, beta, 31, fl), method='Nelder-Mead')
   # GET THE FITTED IMAGE MODEL
   x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg = results.x
   #x0,y0,amp0,amp1,amp2,amp3, N_bkg = results.x
-  qim3 = obj.quad_image_model(x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl)
+  qim3 = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl)
 
   # ESTIMATE ITS CHI VALUES, ITS PEAK CHI VALUE AND LOCATION ON THE MAP
-  chi_vals = obj.moffat_chi_vals(results.x, 31, fl)
+  chi_vals = obj.moffat_chi_vals(results.x, 31, fl, x_images, y_images)
   #chi_vals = obj.moffat_chi_vals2(results.x, alpha, beta,31, fl)
 
   chi_x_max, chi_y_max = np.unravel_index(np.abs(chi_vals).argmax(), chi_vals.shape)
@@ -1454,7 +1442,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileT
   '''
 
 #def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, m1, m2, m3, m4, me4, N_px, outputFileTag='out'):
-def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, beta_err, alpha_beta_corr_coeff, m1, m2, m3, m4, N_px, outputFileTag='out'):
+def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, beta_err, alpha_beta_corr_coeff, m1, m2, m3, m4, N_px, ra_images, dec_images, outputFileTag='out'):
   print '\n\t####################################'
   print   '\t# STARTING EMCEE ###################'
   print   '\t####################################\n'
@@ -1508,7 +1496,7 @@ def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, b
     #print lp, theta
     if not np.isfinite(lp):
         return -np.inf
-    mll = obj.moffat_chi_sq(theta, N_pix, flip)
+    mll = obj.moffat_chi_sq(theta, N_pix, flip, x_images, y_images)
     #print mll
     if not np.isfinite(mll):
         return -np.inf
@@ -1521,6 +1509,16 @@ def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, b
   r1,d1 = FM.bigw.wcs_pix2world(xv+1,yv+1,1)
   fl = True
   if(r1-r0<0): fl =False
+  # convert image ra and dec from arcseconds to degrees
+  dec_images = dec_qsr + dec_images/3600.
+  ra_images = ra_qsr   + ra_images/3600.
+  print dec_images
+  print ra_images
+  x_images,y_images = FM.bigw.wcs_world2pix(ra_images,dec_images,1)
+  x_images -= xv - (N_px-1)/2
+  y_images -= yv - (N_px-1)/2
+  print xv, x_images
+  print yv, y_images
 
   #################################################
   #################################################
