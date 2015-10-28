@@ -336,7 +336,7 @@ class FITSmanager:
 	  self.exposure_time = (self.end_time - self.start_time).seconds + (self.end_time - self.start_time).microseconds/1.e6
 	  return self.exposure_time
 
-def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset, pixel_integration = True):
+def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset, pixel_integration = False):
     #print 'len(x), len(y)', len(x), len(y)
     if(pixel_integration==True):
         xo = float(xo - (len(x)- 1) / 2) 
