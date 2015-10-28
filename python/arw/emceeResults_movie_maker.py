@@ -13,7 +13,8 @@ rcParams['figure.facecolor']='white'
 #fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_*_results.npz') # no priors of seeing imposed
 #fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20150916/npzfiles/image_*_results.npz') # priors of seeing imposed
 #fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20150917/npzfiles/image_*_results.npz') # added pixelization and robust ZP (botched)
-fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20151013/npzfiles/image_*_results.npz') # robust ZP, no subsample-integrated pixelization
+#fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20151013/npzfiles/image_*_results.npz') # robust ZP, no subsample-integrated pixelization
+fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20151020/npzfiles/image_*_results.npz') # robust ZP, added subsample-integrated pixelization
 #fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_21*_results.npz')
 
 
@@ -103,6 +104,9 @@ pxscl = []
 #for k in rand_vals:
 for k in range(0,len(fnames)):
     start_time = clock()
+    print '\n\n############################################\n\n'
+    print 'k=',k, fnames[k]
+    if(k==224 or k in range(297,300)): continue # bad covariance reconstruction
     results = np.load(fnames[k])
     #print '\t',str(results['inputFile'])
     #if('/coj' not in str(results['inputFile'])): continue
@@ -413,11 +417,11 @@ for k in range(0,len(fnames)):
     errorbar(mjd_obs - mjd0, mag1-1.0, yerr=(me1Lower, me1Upper), fmt=',', color=[0.5,0.5,0.5])
     errorbar(mjd_obs[-1:] - mjd0, mag1[-1:]-1.0, yerr=(me1Lower[-1:], me1Upper[-1:]), fmt=',', color='k',elinewidth=3, label='M1 - 1.0')
 
-    errorbar(mjd_obs - mjd0, mag2-0.5, yerr=(me2Lower, me2Upper), fmt=',', color=[0.2,0.2,0.8])
-    errorbar(mjd_obs[-1:] - mjd0, mag2[-1:]-0.5, yerr=(me2Lower[-1:], me2Upper[-1:]), fmt=',', color='b',elinewidth=3, label='M2 - 0.5')
+    errorbar(mjd_obs - mjd0, mag3-0.5, yerr=(me3Lower, me3Upper), fmt=',', color=[0.2,0.2,0.8])
+    errorbar(mjd_obs[-1:] - mjd0, mag3[-1:]-0.5, yerr=(me3Lower[-1:], me3Upper[-1:]), fmt=',', color='b',elinewidth=3, label='M2 - 0.5')
 
-    errorbar(mjd_obs - mjd0, mag3, yerr=(me3Lower, me3Upper), fmt=',', color=[0.8,0.2,0.2])
-    errorbar(mjd_obs[-1:] - mjd0, mag3[-1:], yerr=(me3Lower[-1:], me3Upper[-1:]), fmt=',', color='r',elinewidth=3, label='S1 + 0.0')
+    errorbar(mjd_obs - mjd0, mag2, yerr=(me2Lower, me2Upper), fmt=',', color=[0.8,0.2,0.2])
+    errorbar(mjd_obs[-1:] - mjd0, mag2[-1:], yerr=(me2Lower[-1:], me2Upper[-1:]), fmt=',', color='r',elinewidth=3, label='S1 + 0.0')
 
     errorbar(mjd_obs - mjd0, mag4+0.5, yerr=(me4Lower, me4Upper), fmt=',', color=[0.2,0.8,0.2])
     errorbar(mjd_obs[-1:] - mjd0, mag4[-1:]+0.5, yerr=(me4Lower[-1:], me4Upper[-1:]), fmt=',', color='g',elinewidth=3, label='S2 + 0.5')
@@ -483,7 +487,7 @@ mag2_err = (me2Upper+me2Lower)/2.
 mag3_err = (me3Upper+me3Lower)/2.
 mag4_err = (me4Upper+me4Lower)/2.
 
-ascii.write([mjd_obs, mag1, mag1_err, mag2, mag2_err, mag3, mag3_err, mag4, mag4_err], 'he0435-1223_lcogt_magnitudes.dat', names=['mjd', 'mag_A', 'magerr_A', 'mag_B', 'magerr_B', 'mag_C', 'magerr_C', 'mag_D', 'magerr_D']) 
+ascii.write([mjd_obs, mag1, mag1_err, mag3, mag3_err, mag2, mag2_err, mag4, mag4_err], 'he0435-1223_lcogt_magnitudes.dat', names=['mjd', 'mag_A', 'magerr_A', 'mag_B', 'magerr_B', 'mag_C', 'magerr_C', 'mag_D', 'magerr_D']) 
 exit()
 
 #hist(fwhmCh)

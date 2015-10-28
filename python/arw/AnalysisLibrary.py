@@ -195,7 +195,7 @@ class FITSmanager:
     x,y = self.bigw.wcs_world2pix(ra,dec,1) 
     print ra_images, dec_images
     dec_images = dec + dec_images/3600.
-    ra_images = ra   + ra_images/3600.
+    ra_images = ra   + ra_images/3600./np.cos(dec*np.pi/180.)
     x_images,y_images = self.bigw.wcs_world2pix(ra_images,dec_images,1)
     x_images -= x - (Npx-1)/2
     y_images -= y - (Npx-1)/2
@@ -220,7 +220,9 @@ class FITSmanager:
 	'''
 
 
-
+    x_img, y_img = obj.quad_image_pix_ref(x0, y0, x_images, y_images, fl)
+    x_img -= (Npx-1)/2+1
+    y_img -= (Npx-1)/2+1
     yg, xg =      np.mgrid[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
     r, d = self.bigw.wcs_pix2world(xg-y0,yg-x0, 1)
     d = (d-dec)*3600.
@@ -334,7 +336,7 @@ class FITSmanager:
 	  self.exposure_time = (self.end_time - self.start_time).seconds + (self.end_time - self.start_time).microseconds/1.e6
 	  return self.exposure_time
 
-def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset, pixel_integration = False):
+def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset, pixel_integration = True):
     #print 'len(x), len(y)', len(x), len(y)
     if(pixel_integration==True):
         xo = float(xo - (len(x)- 1) / 2) 
@@ -351,7 +353,7 @@ def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset, pixel_integratio
         xo = float(xo)
         yo = float(yo)    
         a = (beta-1.)/(np.pi*alpha**2)
-        m = offset + amplitude*( 1. + ((x-xo)**2 + (y-yo)**2) / (2.*alpha**2))**(-beta)
+        m = offset + amplitude*( 1. + ((x-xo)**2 + (y-yo)**2) / (alpha**2))**(-beta)
         if(alpha<0.): m+=1.e9
         if(beta<0.): m+=1.e9
         return m.ravel()
@@ -610,21 +612,20 @@ class SourceImage:
 	ra*=-1.
 	return ra-ra_offset, dec-dec_offset
 
-  def quad_image_pix_ref(self, x0, y0, flip):
-    # NEED A GOOD MODEL HERE
-    scale = 0.99*0.467/self.FM.hdulist[0].header['PIXSCALE']
-    x1 = (14.3 + x0)*scale
-    y1 = (13.2 + y0)*scale
-    x2 = (15.6 + x0)*scale
-    y2 = (18.4 + y0)*scale
-    x3 = (13.1 + x0)*scale
-    y3 = (16.4 + y0)*scale
-    x4 = (17.6 + x0)*scale
-    y4 = (15.3 + y0)*scale
+  def quad_image_pix_ref(self, x0, y0, x_image, y_image, flip):
+    x1 = y_image[0]+x0
+    x2 = y_image[1]+x0
+    x3 = y_image[2]+x0
+    x4 = y_image[3]+x0
+    y1 = x_image[0]+y0
+    y2 = x_image[1]+y0
+    y3 = x_image[2]+y0
+    y4 = x_image[3]+y0
+
     x_vals = np.array([x1,x2,x3,x4]) 
     y_vals = np.array([y1,y2,y3,y4])
-    if(flip):
-    	y_vals = 15.-1.*(y_vals-15.)
+    #if(flip):
+    #	y_vals = 15.-1.*(y_vals-15.)
     return x_vals, y_vals
 
   def quad_image_model(self, x0, y0, x_image, y_image, amp0, amp1, amp2, amp3, alpha, beta, N_bkg, N_pix, flip):
