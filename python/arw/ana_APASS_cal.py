@@ -1,3 +1,8 @@
+'''
+ARW 05-JAN-2016
+This script extracts the derived zero points from lcogt analysis log files and produces a plot vs. time.
+'''
+
 from pylab import *
 import numpy as np
 import glob
