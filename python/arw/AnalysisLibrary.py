@@ -336,7 +336,7 @@ class FITSmanager:
 	  self.exposure_time = (self.end_time - self.start_time).seconds + (self.end_time - self.start_time).microseconds/1.e6
 	  return self.exposure_time
 
-def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset, pixel_integration = False):
+def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset, pixel_integration = True):
     #print 'len(x), len(y)', len(x), len(y)
     if(pixel_integration==True):
         xo = float(xo - (len(x)- 1) / 2) 
@@ -1610,6 +1610,9 @@ def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, b
   print 'chain saving complete'
 
 def flux2magnitude(flux):
+    #for k in range(0,len(flux)):
+    #    if(flux[k]<=0.):
+    #        print 'bad',k,flux[k]
     return -2.5*np.log10(flux)
 
 def magnitude2flux(mag):
