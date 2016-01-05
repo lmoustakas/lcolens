@@ -4,11 +4,12 @@ import numpy as np
 from pylab import *
 from astropy.io import ascii
 import glob
+import os
 import AnalysisLibrary as AL
 from time import clock
 
 rcParams['font.size']=24
-rcParams['legend.fontsize']=24
+rcParams['legend.fontsize']=18
 rcParams['figure.facecolor']='white'
 #fnames = glob.glob('/nisushome/romerowo/lcolens_20150605/python/arw/npzfiles/image_*_results.npz') # no priors of seeing imposed
 #fnames = glob.glob('/disk4/romerowo/lcolens_outputs/20150916/npzfiles/image_*_results.npz') # priors of seeing imposed
@@ -111,12 +112,12 @@ theta_list = []
 #rand_vals = sort(rand_vals)
 #for k in [30, 80,90,100, 150, 210]:
 #for k in rand_vals:
-#for k in range(0,10):
+#for k in range(0,2):
 for k in range(0,len(fnames)):
     start_time = clock()
     print '\n\n############################################\n\n'
     print 'k=',k, fnames[k]
-    #if(k==224 or k in range(297,300)): continue # bad covariance reconstruction
+    if(os.path.exists(fnames[k].replace('image', 'bad_image'))): continue # bad covariance reconstruction
 
     results = np.load(fnames[k])
     #print '\t',str(results['inputFile'])
@@ -300,27 +301,28 @@ for k in range(0,len(fnames)):
     mu3 = np.mean(mag3_array)
     mu4 = np.mean(mag4_array)
     print 'estimating covariance matrix: %1.2f s'%(clock()-start_time)
-    cov = zeros((4,4))
-    cov[0][0] = np.mean((mag1_array - mu1)**2)
-    cov[1][1] = np.mean((mag2_array - mu2)**2)
-    cov[2][2] = np.mean((mag3_array - mu3)**2)
-    cov[3][3] = np.mean((mag4_array - mu4)**2)
-    cov[0][1] = np.mean((mag1_array - mu1)*(mag2_array - mu2))
-    cov[0][2] = np.mean((mag1_array - mu1)*(mag3_array - mu3))
-    cov[0][3] = np.mean((mag1_array - mu1)*(mag4_array - mu4))
-    cov[1][0] = cov[0][1]
-    cov[1][2] = np.mean((mag2_array - mu2)*(mag3_array - mu3))
-    cov[1][3] = np.mean((mag2_array - mu2)*(mag4_array - mu4))
-    cov[2][0] = cov[0][2]
-    cov[2][1] = cov[1][2]
-    cov[2][3] = np.mean((mag3_array - mu3)*(mag4_array - mu4))
-    cov[3][0] = cov[0][3]
-    cov[3][1] = cov[1][3]
-    cov[3][2] = cov[2][3]
+    print ZP_flux[-1]
+    for ii in range(0,len(light_distrib2)):
+        if light_distrib2[ii]<=0.:
+            print 'negative value!', ii, light_distrib2[ii]
+    print np.sum(np.isnan(ZP_flux[-1]*np.array(light_distrib1))), len(ZP_flux[-1]*np.array(light_distrib1))
+    print np.sum(np.isnan(ZP_flux[-1]*np.array(light_distrib2))), len(ZP_flux[-1]*np.array(light_distrib2))
+    print np.sum(np.isnan(ZP_flux[-1]*np.array(light_distrib3))), len(ZP_flux[-1]*np.array(light_distrib3))
+    print np.sum(np.isnan(ZP_flux[-1]*np.array(light_distrib4))), len(ZP_flux[-1]*np.array(light_distrib4))
+    print ''
+    print np.sum(np.isnan(mag1_array)), len(mag1_array)
+    print np.sum(np.isnan(mag2_array)), len(mag2_array)
+    print np.sum(np.isnan(mag3_array)), len(mag3_array)
+    print np.sum(np.isnan(mag4_array)), len(mag4_array)
+    cov     = np.cov([mag1_array, mag2_array, mag3_array, mag4_array])
     cov_det = np.linalg.det(cov)
     print '\t','***** COV DET **** %1.2e'%cov_det
     icov = np.infty
     icov_det = np.infty
+
+    #cov_mat_det = np.linalg.det(cov_mat)
+    print cov
+    print cov_det
     try: 
         	icov = np.linalg.inv(cov)
         	icov_det = np.linalg.det(icov)
@@ -364,12 +366,139 @@ mag2_err = (me2Upper+me2Lower)/2.
 mag3_err = (me3Upper+me3Lower)/2.
 mag4_err = (me4Upper+me4Lower)/2.
 
+###################################
+# SAVE FULL RESOLUTION FIGURES ####
+###################################
+
+seeing_arcsec = np.array(seeing_fwhm)*np.array(pxscl)
+cov_uncertainty = np.power(np.sqrt(det_cov),1./4.)
+np.savez('emceeResults.npz', mjd_obs=mjd_obs, airmass=airmass, seeing_arcsec=seeing_arcsec, cov_uncertainty=cov_uncertainty, mag1=mag1, mag2=mag2, mag3=mag3, mag4=mag4, me1Lower=me1Lower, me2Lower=me2Lower, me3Lower=me3Lower, me4Lower=me4Lower, me1Upper=me1Upper, me2Upper=me2Upper, me3Upper=me3Upper, me4Upper=me4Upper, input_files=input_files)
+npzfile = np.load('emceeResults.npz')
+print npzfile.files
+
+figure(1)
+ax = subplot(111)
+for nn in range(0,len(mjd_obs)):
+	if 'lsc' in input_files[nn]:
+		plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'bs')
+	if 'coj' in input_files[nn]:
+		plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'go')
+	if 'cpt' in input_files[nn]:
+		plt.plot([mjd_obs[nn] - mjd0], [airmass[nn]], 'r^')
+#if 'lsc' in input_files[k]:
+#	plt.plot([mjd_obs[k] - mjd0], [airmass[k]], 's', ms=15)
+#if 'coj' in input_files[k]:
+#	plt.plot([mjd_obs[k] - mjd0], [airmass[k]], 'go', ms=15)
+#if 'cpt' in input_files[k]:
+#	plt.plot([mjd_obs[k] - mjd0], [airmass[k]], 'r^', ms=15)
+plt.plot([-1.], [-1.], 'bs', ms=8, label='Chile')
+plt.plot([-1.], [-1.], 'go', ms=8, label='Australia')
+plt.plot([-1.], [-1.], 'r^', ms=8, label='S. Africa')
+plt.legend(loc=(0.17,0.), numpoints=1, fontsize=24, frameon=False, borderaxespad=-0.05, handletextpad=-0.5, columnspacing=-0.5, labelspacing=0., borderpad=-0.05)
+#plot([mjd_obs[k] - mjd0, mjd_obs[k] - mjd0], [2.3, 1.0], 'k--')
+plt.xlim(0.,2.3)
+plt.ylim(2.3,1.0)
+y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+ax.yaxis.set_major_formatter(y_formatter)
+ylabel('Airmass')
+plt.savefig('airmass.pdf')
+
+
+figure(2)
+for nn in range(0,len(mjd_obs)):
+	if 'lsc' in input_files[nn]:
+		plt.plot([mjd_obs[nn] - mjd0], [seeing_fwhm[nn]*pxscl[nn]], 'bs')
+	if 'cpt' in input_files[nn]:
+		plt.plot([mjd_obs[nn] - mjd0], [seeing_fwhm[nn]*pxscl[nn]], 'r^')
+	if 'coj' in input_files[nn]:
+		plt.plot([mjd_obs[nn] - mjd0], [seeing_fwhm[nn]*pxscl[nn]], 'go')
+#if 'lsc' in input_files[k]:
+#	plt.plot([mjd_obs[k] - mjd0], [seeing_fwhm[k]*pxscl[k]], 'bs', ms=15)
+#if 'cpt' in input_files[k]:
+#	plt.plot([mjd_obs[k] - mjd0], [seeing_fwhm[k]*pxscl[k]], 'r^', ms=15)
+#if 'coj' in input_files[k]:
+#	plt.plot([mjd_obs[k] - mjd0], [seeing_fwhm[k]*pxscl[k]], 'go', ms=15)
+# plt.plot(mjd_obs - mjd0, seeing_fwhm, 'ro')
+#plot([mjd_obs[k] - mjd0,mjd_obs[k] - mjd0], [0.,2.75], 'k--')
+plt.xlim(0.,2.3)
+plt.ylim(0.,2.75)
+y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+ax.yaxis.set_major_formatter(y_formatter)
+ylabel('Seeing, arcseconds')
+plt.savefig('seeing.pdf')
+
+figure(3, figsize=(8,10))
+ax = subplot(111)
+ax.set_yscale('log')
+for nn in range(0,len(mjd_obs)):
+	if 'lsc' in input_files[nn]:
+		plt.plot([mjd_obs[nn] - mjd0], [np.power(np.sqrt(det_cov[nn]),1./4.)], 'bs')
+	if 'cpt' in input_files[nn]:
+		plt.plot([mjd_obs[nn] - mjd0], [np.power(np.sqrt(det_cov[nn]),1./4.)], 'r^')
+	if 'coj' in input_files[nn]:
+		plt.plot([mjd_obs[nn] - mjd0], [np.power(np.sqrt(det_cov[nn]),1./4.)], 'go')
+#if 'lsc' in input_files[k]:
+#	plt.plot([mjd_obs[k] - mjd0], [np.power(np.sqrt(det_cov[k]),1./4.)], 'bs', ms=15)
+#if 'cpt' in input_files[k]:
+#	plt.plot([mjd_obs[k] - mjd0], [np.power(np.sqrt(det_cov[k]),1./4.)], 'r^', ms=15)
+#if 'coj' in input_files[k]:
+#	plt.plot([mjd_obs[k] - mjd0], [np.power(np.sqrt(det_cov[k]),1./4.)], 'go', ms=15)
+#plt.plot(mjd_obs - mjd0, np.log10(np.array(det_cov)), 'ro')
+#plot([mjd_obs[k] - mjd0,mjd_obs[k] - mjd0], [0.01,0.5], 'k--')
+plt.xlim(0.,2.3)
+plt.ylim(0.01,0.5)
+#y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+#ax.yaxis.set_major_formatter(y_formatter)
+ylabel('$(\sqrt{|\Sigma|})^{1/4}$, mag')
+xlabel('Days Since MJD %1.0f'%mjd0)
+yticks([0.003, 0.01, 0.03, 0.10, 0.3])
+title('Magnitude Uncertainty')
+grid(True)
+subplots_adjust(left=0.2, bottom=0.1)
+plt.savefig('covariance.pdf')
+
+figure(4, figsize=(8,10))
+errorbar(mjd_obs - mjd0, mag1-1.0, yerr=(me1Lower, me1Upper), fmt=',', color=[0.,0.,0.], elinewidth=2)
+#errorbar([mjd_obs[k] - mjd0], [mag1[k]-1.0], yerr=([me1Lower[k]], [me1Upper[k]]), fmt=',', color=[0.,0.,0.],elinewidth=10)  #, label='M1 - 1.0'
+
+errorbar(mjd_obs - mjd0, mag3-0.5, yerr=(me3Lower, me3Upper), fmt=',', color=[0.,0.,0.8], elinewidth=2)
+#errorbar([mjd_obs[k] - mjd0], [mag3[k]-0.5], yerr=([me3Lower[k]], [me3Upper[k]]), fmt=',', color=[0.,0.,0.8],elinewidth=10) #, label='M2 - 0.5'
+
+errorbar(mjd_obs - mjd0, mag2, yerr=(me2Lower, me2Upper), fmt=',', color=[0.7,0.,0.], elinewidth=2)
+#errorbar([mjd_obs[k] - mjd0], [mag2[k]], yerr=([me2Lower[k]], [me2Upper[k]]), fmt=',', color=[0.7,0.,0.],elinewidth=10)     #, label='S1 + 0.0'
+
+errorbar(mjd_obs - mjd0, mag4+0.5, yerr=(me4Lower, me4Upper), fmt=',', color='g', elinewidth=2)
+#errorbar([mjd_obs[k] - mjd0], [mag4[k]+0.5], yerr=([me4Lower[k]], [me4Upper[k]]), fmt=',', color='g',elinewidth=10) #, label='S2 + 0.5'
+
+plt.errorbar([-1.], [-1.], yerr=[1.], fmt='k,', elinewidth=10, label='M1 - 1.0')
+plt.errorbar([-1.], [-1.], yerr=[1.], fmt='b,',elinewidth=10,  label='M2 - 0.5')
+plt.errorbar([-1.], [-1.], yerr=[1.], fmt='r,',elinewidth=10,  label='S1 + 0.0')
+plt.errorbar([-1.], [-1.], yerr=[1.], fmt='g,',elinewidth=10,  label='S2 + 0.5')
+
+
+#plot([mjd_obs[k] - mjd0,mjd_obs[k] - mjd0], [20.3,16.], 'k--')
+plt.xlim(0.,2.3)
+plt.ylim(20.3,16.)
+y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+ax.yaxis.set_major_formatter(y_formatter)
+xlabel('Days Since MJD %1.0f'%mjd0)
+ylabel('Image Magnitudes')
+legend(loc=2, numpoints=1)
+suptitle('HE0435-1223 \n LCOGT Observations', fontsize=36)
+grid(True)
+subplots_adjust(left=0.15, top=0.85)
+plt.savefig('light_curves.pdf')
+
+#suptitle(fnm.split('/')[-1])
+#exit()
+
+
 #for k in range(0,10):
 for k in range(0,len(fnames)):
     start_time = clock()
     print '\n\n############################################\n\n'
     print 'k=',k, fnames[k]
-    if(k==224 or k in range(297,300)): continue # bad covariance reconstruction
+    if(os.path.exists(fnames[k].replace('image', 'bad_image'))): continue # bad covariance reconstruction
 
     print '\topening FITS file: %1.2f s'%(clock()-start_time)
     FM = AL.FITSmanager(fnm_list[k])
@@ -507,6 +636,7 @@ for k in range(0,len(fnames)):
 
     img_index = str(outFileTags[k]).split('_')[-1].split('.')[0]
     plt.savefig('slow_movie_image_%s.png'%img_index, dpi=50)
+    plt.savefig('slow_movie_image_%s.pdf'%img_index)
     #plt.savefig('slow_movie_%s.png'%outFileTags[k], dpi=50)
     FM.hdulist.close()
     results.close()
