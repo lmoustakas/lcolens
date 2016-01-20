@@ -358,6 +358,17 @@ def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset, pixel_integratio
         if(beta<0.): m+=1.e9
         return m.ravel()
  
+def deVaucouleurs((x,y), x0, y0, F, r0, q = 1.0, posang=0.0):
+    spa = np.sin(posang / 180.0 * np.pi)
+    cpa = np.cos(posang / 180.0 * np.pi)
+
+    # Define xprime coordinates in the rotated frame for convenience
+    # This uses a standard rotation matrix
+    xp = (x - x0) * cpa - (y - y0) * spa
+    yp = (x - x0) * spa + (y - y0) * cpa
+    # Defined r^2 (no need to take a square root)
+    r = np.sqrt(xp * xp / q / q + yp * yp)
+    return F/0.010584/r0**2*np.exp(-(r/r0)**(0.25))
 #'''
 
 def twoD_elliptical_Moffat((x, y), amplitude, alpha, beta, xo, yo, el, theta, offset):
