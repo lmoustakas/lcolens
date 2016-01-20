@@ -369,6 +369,47 @@ def deVaucouleurs((x,y), x0, y0, F, r0, q = 1.0, posang=0.0):
     # Defined r^2 (no need to take a square root)
     r = np.sqrt(xp * xp / q / q + yp * yp)
     return F/0.010584/r0**2*np.exp(-(r/r0)**(0.25))
+
+
+def deVaucouleurs_model(x0, y0, F, r0, moffat_alpha, moffat_beta, q = 1.0, posang=0.0, npx=31, subsamp = 3, boundary_padding = 2):
+    # This function produces a subpixelized and padded deVaucouleurs profile, convolves it with a Moffat PSF and performs the sub-pixel integration. 
+    # The boundary is padded to reduce the boundary effects of the image convolution but the output has the correct image dimensions.
+    # The steps are outlined below.
+    #   1. Sub-pixelized and padded model of deVaucouleurs profile and moffat.
+    #   2. Convolve the profiles
+    #   3. Trim the boundaries.
+    #   4. Sub-pixel integration
+    #   5. Return output
+
+    # 1. Sub-pixelized and padded model of deVaucouleurs profile and moffat.
+    npx_p_sp = (npx)*subsamp*boundary_padding
+    x=np.arange(0.,npx_p_sp)
+    y=np.arange(0.,npx_p_sp)
+    xg, yg = np.mgrid[:len(x), :len(x)]
+    img = deVaucouleurs((xg,yg), (len(x)-1)/2,(len(y)-1)/2,F,r0, q=q, posang=posang)
+    # the Moffat PSF has alpha increased by the subpixel padding
+    PSF_model = psf.moffat(xg, yg, (len(x)-1)/2+0.5,  (len(y)-1)/2+0.5, alpha*subsamp, beta, q = 1.0, posang = 0.0)
+
+    # 2. Convolve the profiles
+    conv = np.fft.irfft2(np.fft.rfft2(PSF_model) * np.fft.rfft2(img)) # FFT2 is much faster than scipy convolve and gives the same results.
+    conv = np.fft.fftshift(conv)
+
+    # 3. Trim the boundaries.
+    trm = conv[(npx_p_sp-1)/4:-(npx_p_sp-1)/4+1, (npx_p_sp-1)/4:-(npx_p_sp-1)/4+1]
+    
+    # 4. Sub-pixel integration (lifted from Curtis' code. See psf.moffat_kernel function for more detailed comments.)    
+    #subkern = np.zeros((npx * subsamp - subsamp + 1, npx * subsamp - subsamp + 1 ))
+    x2 = np.linspace(-npx / 2  + 0.5, npx / 2 + 0.5, npx * subsamp + 1  )
+    y2 = np.linspace(-npx / 2  + 0.5, npx / 2 + 0.5, npx * subsamp + 1  )
+    x2d, y2d = np.meshgrid(x2, y2)
+    subkern=trm.copy()
+    result4d = np.zeros((npx, npx, subsamp + 1, subsamp + 1))
+    kern4d = integrate.make4d(subkern, npx, npx, subsamp)
+    dx = x[1] - x[0]
+    dy = y[1] - y[0]
+    return integrate.simp4d(kern4d, dx, dy)
+    
+
 #'''
 
 def twoD_elliptical_Moffat((x, y), amplitude, alpha, beta, xo, yo, el, theta, offset):
