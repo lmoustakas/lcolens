@@ -1222,7 +1222,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   return ZP_mean, ZP_wrms, ZP_rms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr
 
 
-def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileTag='out'):
+def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileTag='out'):
   # GET THE QUASAR IMAGE
   obj = SourceImage(FM, ra_qsr, dec_qsr, N_px)
 
@@ -1246,13 +1246,18 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ZP_mean, ZP_rms, alpha, 
   # convert image ra and dec from arcseconds to degrees
   dec_images = dec_qsr + dec_images/3600.
   ra_images = ra_qsr   + ra_images/3600.
-  print dec_images
-  print ra_images
+  dec_lens = dec_qsr + dec_lens/3600.
+  ra_lens = ra_qsr   + ra_lens/3600.
+  print dec_images, dec_lens
+  print ra_images, ra_lens
   x_images,y_images = FM.bigw.wcs_world2pix(ra_images,dec_images,1)
   x_images -= xv - (N_px-1)/2
   y_images -= yv - (N_px-1)/2
-  print xv, x_images
-  print yv, y_images
+  x_lens,y_lens = FM.bigw.wcs_world2pix(ra_lens,dec_lens,1)
+  x_lens -= xv - (N_px-1)/2
+  y_lens -= yv - (N_px-1)/2
+  print xv, x_images, x_lens
+  print yv, y_images, y_lens
   # DEFINE ARRAY OF INPUT PARAMETERS
   # PRODUCE A MODELED IMAGE
   qim = obj.quad_image_model(x0,y0,x_images,y_images,amp0,amp1,amp2,amp3, alpha, beta, N_bkg, len(obj.image), fl)
