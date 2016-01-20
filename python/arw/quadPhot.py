@@ -85,7 +85,7 @@ if __name__ == "__main__":
     print 'PIXSCALE', FM.hdulist[0].header['PIXSCALE']
     print 'ra images in arcsec', ra_images
     print 'dec images in arcsec', dec_images
-    m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ZP_mean, ZP_wrms, alpha_mean, beta_mean, npxls, outputFileTag=args.outputFileTag)
+    m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, ZP_mean, ZP_wrms, alpha_mean, beta_mean, npxls, outputFileTag=args.outputFileTag)
 
     npz_out = args.outputFileTag + '_results.npz'
     readnoise = FM.readnoise
