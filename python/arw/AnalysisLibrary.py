@@ -17,7 +17,7 @@ from scipy import signal
 import emcee
 import corner
 import psf
-from astroscrappy import detect_cosmics
+#from astroscrappy import detect_cosmics
 import integrate
 integrate = integrate.integrate()
 import time
