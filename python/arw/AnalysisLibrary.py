@@ -15,7 +15,7 @@ from scipy.optimize import leastsq
 import matplotlib
 from scipy import signal
 import emcee
-import triangle
+import corner
 import psf
 from astroscrappy import detect_cosmics
 import integrate
@@ -1885,7 +1885,7 @@ def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, b
   parms = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]), zip(*np.percentile(samples, [16, 50, 84],axis=0)))
   #labels = [ r"$x_0$", r"$y_0$", "amp1", "amp2", "amp3", "amp4", r"$\alpha$", "$\beta$", "N$_{bkg}$"]
   labels = [ "x0", "y0", "amp1", "amp2", "amp3", "amp4", "alpha", "beta", "N_bkg"]
-  fig= triangle.corner(samples, labels=labels)
+  fig= corner.corner(samples, labels=labels)
   count=0
   for ax in fig.get_axes():
     count+=1
@@ -1921,7 +1921,7 @@ def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, b
   for k in range(0,len(parms)):
     print '%s\t%+1.2e\t%+1.2e\t%+1.2e\t%+1.2e'%(labels[k], theta[k], parms[k][0],parms[k][1],parms[k][2])
 
-  fig= triangle.corner(samples, labels=labels)
+  fig= corner.corner(samples, labels=labels)
   count=0
   for ax in fig.get_axes():
     count+=1
@@ -2095,7 +2095,7 @@ def emceeQuadFitLensGal(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha
   parms = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]), zip(*np.percentile(samples, [16, 50, 84],axis=0)))
   #labels = [ r"$x_0$", r"$y_0$", "amp1", "amp2", "amp3", "amp4", r"$\alpha$", "$\beta$", "N$_{bkg}$"]
   labels = [ "x0", "y0", "amp1", "amp2", "amp3", "amp4", "amp_lens", "r0_lens", "q_lens", "posang_lens", "alpha", "beta", "N_bkg"]
-  fig= triangle.corner(samples, labels=labels)
+  fig= corner.corner(samples, labels=labels)
   count=0
   for ax in fig.get_axes():
     count+=1
@@ -2134,7 +2134,7 @@ def emceeQuadFitLensGal(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha
       for k in range(0,len(parms)):
         print '%s\t%+1.2e\t%+1.2e\t%+1.2e\t%+1.2e'%(labels[k], theta[k], parms[k][0],parms[k][1],parms[k][2])
 
-      fig= triangle.corner(samples, labels=labels)
+      fig= corner.corner(samples, labels=labels)
       count=0
       for ax in fig.get_axes():
         count+=1
