@@ -7,7 +7,7 @@ from astropy import wcs
 #from astroscrappy import detect_cosmics
 
 #from wcsaxes import WCSAxes
-import aplpy
+#import aplpy
 import pylab as plt
 import scipy.optimize as opt
 from scipy.optimize import minimize
