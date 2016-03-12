@@ -1746,7 +1746,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   plt.savefig(outputFileTag+'_lensgal.png', dpi=50)
 
   plt.figure()
-  plt.hist(chi_vals.flat)
+  plt.hist(np.ravel(chi_vals))
   plt.xlabel('chi values')
   plt.ylabel('counts')
   plt.suptitle(obj.FM.fits_file_name.split('/')[-1],fontsize=20)
