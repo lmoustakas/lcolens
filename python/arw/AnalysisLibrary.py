@@ -4,7 +4,7 @@ import os
 from astropy.io import fits
 from astropy.io import ascii
 from astropy import wcs
-from astroscrappy import detect_cosmics
+#from astroscrappy import detect_cosmics
 
 #from wcsaxes import WCSAxes
 import aplpy
