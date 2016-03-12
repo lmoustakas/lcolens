@@ -49,7 +49,7 @@ if __name__ == "__main__":
     FM.estimate_read_noise(display=args.plots, out = args.outputFileTag+'_readnoise')
 
     # APASS PHOTOMETRY
-    APASS_table = ascii.read('../../data/HE0435_LCOGT/APASS_0438_list.csv')
+    APASS_table = ascii.read('./APASS_0438_list.csv')
     APASS_rejects = [9, 21, 22] # 9 and 21 seem to be at the edge of the field of view. 22 seems close to the edge, sometimes we don't catch it.
     ZP_mean, ZP_wrms, ZP_rms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr = APASS_zero_points(FM, APASS_table, APASS_rejects, FM.readnoise, display=args.plots, out = args.outputFileTag+'_APASS')
     print '\tZero Points',ZP_mean, ZP_wrms
