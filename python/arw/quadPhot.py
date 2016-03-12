@@ -85,7 +85,7 @@ if __name__ == "__main__":
     print 'PIXSCALE', FM.hdulist[0].header['PIXSCALE']
     print 'ra images in arcsec', ra_images
     print 'dec images in arcsec', dec_images
-    m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, ZP_mean, ZP_wrms, alpha_mean, beta_mean, npxls, outputFileTag=args.outputFileTag)
+    m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, ZP_mean, ZP_wrms, alpha_mean, beta_mean, npxls, outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
 
     npz_out = args.outputFileTag + '_results.npz'
     readnoise = FM.readnoise
@@ -128,7 +128,9 @@ if __name__ == "__main__":
 
     if(args.emcee_level==1):
 	    emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_wrms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr, m1, m2, m3, m4, npxls, ra_images, dec_images,  outputFileTag=args.outputFileTag)
-    if(args.emcee_level>1):
+    if(args.emcee_level==2):
+	    emceeQuadFitLensGal(FM, ra_qsr, dec_qsr, ZP_mean, ZP_wrms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr, m1, m2, m3, m4, npxls, ra_images, dec_images, ra_lensgal, dec_lensgal, outputFileTag=args.outputFileTag)
+    if(args.emcee_level>2):
 	    print 'YOU HAVE SELECTED A LEVEL OF EMCEE FITTING OF %d'%(args.emcee_level)
 	    print 'THIS CAPABILITY HAS NOT YET BEEN DEVELOPED'
 	    print 'THANK YOU FOR YOUR PATIENCE'

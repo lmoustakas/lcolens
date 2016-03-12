@@ -771,6 +771,30 @@ class SourceImage:
 	#print '%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e'%(chisq, theta[0], theta[1], theta[2], theta[3], theta[4], theta[5], theta[6], theta[7], theta[8]) 
 	return chisq
 
+  def moffat_chi_vals_w_lens_amp_only(self,theta,N_pix, flip, x_images, y_images, x_lens, y_lens, r0_lens, q_lens, posang_lens):
+    x0,y0,amp0,amp1,amp2,amp3, amp_lens, alpha, beta, N_bkg = theta
+    if(amp0<0 or amp1<0 or amp2<0 or amp3<0 or amp_lens<0. or r0_lens<=0. or q_lens<0. or posang_lens<0.):
+	    return np.inf
+
+    model = self.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, N_pix, flip, x_lens, y_lens, amp_lens, r0_lens, q_lens, posang_lens)
+    chi = (self.image - model)/np.sqrt(self.image+self.FM.readnoise**2)
+    #print np.sum(chi*chi)
+    #print x0,y0, N_pix/2
+    # NO NEGATIVE AMPLITUDES ALLOWED!
+    #print 'deVaucouleurs Model Peak', np.max(m)
+
+    m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
+    #print 'moffat_chi_vals_w_lens: %1.5e %1.2e %1.2e %1.2e %1.2e %1.2e %1.2e %1.2e %1.1f %1.1f'%(np.sum(chi**2), amp0, amp1, amp2, amp3, N_bkg, amp_lens, r0_lens, posang_lens, np.max(m))
+    # THE IMAGE CORRECTION HAS TO BE WITHIN THE BOUNDS OF THE IMAGE!
+    if(x0>N_pix/2 or x0<-N_pix/2 or y0>N_pix/2 or y0<-N_pix/2):
+	    return np.inf
+    return chi
+
+  def moffat_chi_sq_w_lens_amp_only(self, theta, N_pix, flip, x_images, y_images, x_lens, y_lens, r0_lens, q_lens, posang_lens):
+	chisq = np.sum((self.moffat_chi_vals_w_lens_amp_only(theta, N_pix, flip, x_images, y_images, x_lens, y_lens, r0_lens, q_lens, posang_lens))**2)
+	#print '%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e\t%1.2e'%(chisq, theta[0], theta[1], theta[2], theta[3], theta[4], theta[5], theta[6], theta[7], theta[8]) 
+	return chisq
+
   '''
   def moffat_chi_vals2(self,theta,alpha, beta,N_pix, flip):
     x0,y0,amp0,amp1,amp2,amp3, N_bkg = theta
@@ -1271,7 +1295,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   return ZP_mean, ZP_wrms, ZP_rms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr
 
 
-def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileTag='out'):
+def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileTag='out', emcee_level=1):
   # GET THE QUASAR IMAGE
   obj = SourceImage(FM, ra_qsr, dec_qsr, N_px)
 
@@ -1315,6 +1339,8 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   # DEFINE ARRAY OF INPUT PARAMETERS
   # PRODUCE A MODELED IMAGE
   #qim = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, len(obj.image), fl, x_lens, y_lens, amp_lens, r0_lens, q_lens, posang_lens)
+
+  # FOR THE CORRELATION AND FIRST IMAGE ALIGNMENT, WE WON'T INCLUDE THE LENSING GALAXY
   qim = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, len(obj.image), fl)
   '''
   plt.figure()
@@ -1345,7 +1371,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   amp2*=np.max(obj.image)/np.max(qim)
   amp3*=np.max(obj.image)/np.max(qim)
   amp_lens*=np.max(obj.image)/np.max(qim)
-  # PRODUCE THE MODEL IMAGE
+  # PRODUCE THE MODEL IMAGE WITHOUT LENSING GALAXY
   qim2 = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl)
 
  
@@ -1368,9 +1394,23 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   for k in range(0,4):
     print 'MINIMIZATION ROUND',k+2
     results = opt.minimize(obj.moffat_chi_sq, results.x,  args=(31, fl, x_images, y_images), method='Nelder-Mead')
-    print '\tresults',results.x
+    #print '\tresults',results.x
+    print '\t\tx0\t',results.x[0]
+    print '\t\ty0\t',results.x[1]
+    print '\t\tamp0\t',results.x[2]
+    print '\t\tamp1\t',results.x[3]
+    print '\t\tamp2\t',results.x[4]
+    print '\t\tamp3\t',results.x[5]
+    print '\t\talpha\t',results.x[6]
+    print '\t\tbeta\t',results.x[7]
+    print '\t\tN_bkg\t',results.x[8]
   # GET THE FITTED IMAGE MODEL
   x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg = results.x
+
+
+  # STORE FITTED PARAMETERS IN THE CLASS
+  FM.qsr_min_parms = results.x
+
   #x0,y0,amp0,amp1,amp2,amp3, N_bkg = results.x
   qim3 = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl)
   '''
@@ -1404,8 +1444,10 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
 
   # ESTIMATE THE LENS AMPLITUDE USING THE MAXIMUM OF THE RESIDUALS. THIS SHOULD AT LEAST GET IT IN THE RIGHT SCALE!
   res = obj.image-qim3
-  print np.max(res)
+  print 'NO LENS FIT MAXIMUM RESIDUAL', np.max(res)
+  # INITIAL LENS GALAXY FLUX ESTIMATE. THE CONSTANT TRANSLATES THE FLUX TO THE EPECTED PEAK VALUE
   amp_lens = 126669.015793*np.max(res)*r0_lens**2
+  print 'INITIAL LENS AMPLITUDE', np.max(res)
   m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=0.0, npx=31)
   print np.max(m)
   amp_lens *= np.max(res)/np.max(m)
@@ -1413,39 +1455,79 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   print np.max(m)
   #exit()
   # PRODUCE THE PARAMETERS FOR THE MODEL IMAGE
-  theta2 = [x0,y0,amp0,amp1,amp2,amp3, amp_lens, r0_lens, q_lens, posang_lens, alpha, beta, N_bkg]
+  #theta2 = [x0,y0,amp0,amp1,amp2,amp3, amp_lens, r0_lens, q_lens, posang_lens, alpha, beta, N_bkg]
+  theta2 = [x0,y0,amp0,amp1,amp2,amp3, amp_lens, alpha, beta, N_bkg]
   #theta2 = [x0,y0,amp0,amp1,amp2,amp3, N_bkg]
 
   # ESTIMATE ITS DISTRIBUTION OF CHI VALUES
   #chi2 = obj.moffat_chi_vals(theta2, 31, fl, x_images, y_images, x_lens, y_lens)
-  chi2 = obj.moffat_chi_vals_w_lens(theta2, 31, fl, x_images, y_images, x_lens, y_lens)
+  #chi2 = obj.moffat_chi_vals_w_lens(theta2, 31, fl, x_images, y_images, x_lens, y_lens)
+  chi2 = obj.moffat_chi_vals_w_lens_amp_only(theta2, 31, fl, x_images, y_images, x_lens, y_lens, r0_lens, q_lens, posang_lens)
   #chi2 = obj.moffat_chi_vals2(theta2, alpha, beta,31, fl)
 
   print 'MINIMIZATION ROUND',1
   # FIT A MODEL TO THE DATA
-  results = opt.minimize(obj.moffat_chi_sq_w_lens, theta2,  args=(31, fl, x_images, y_images, x_lens, y_lens), method='Nelder-Mead')
   #results = opt.minimize(obj.moffat_chi_sq2, theta2,  args=(alpha, beta, 31, fl), method='Nelder-Mead')
+  #results = opt.minimize(obj.moffat_chi_sq_w_lens, theta2,  args=(31, fl, x_images, y_images, x_lens, y_lens), method='Nelder-Mead')
+  results = opt.minimize(obj.moffat_chi_sq_w_lens_amp_only, theta2,  args=(31, fl, x_images, y_images, x_lens, y_lens, r0_lens, q_lens, posang_lens), method='Nelder-Mead')
+  #x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, r0_lens_fit, q_lens_fit, posang_lens_fit, alpha, beta, N_bkg = results.x
+  x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, alpha, beta, N_bkg = results.x
+  print '\tresults'
+  print '\t\tx0\t',results.x[0]
+  print '\t\ty0\t',results.x[1]
+  print '\t\tamp0\t',results.x[2]
+  print '\t\tamp1\t',results.x[3]
+  print '\t\tamp2\t',results.x[4]
+  print '\t\tamp3\t',results.x[5]
+  print '\t\tamp_lens\t',results.x[6]
+  #print '\t\tr0_lens\t',results.x[7]
+  #print '\t\tq_lens\t',results.x[8]
+  #print '\t\tposang_lens\t',results.x[9]
+  print '\t\talpha\t',results.x[7]
+  print '\t\tbeta\t',results.x[8]
+  print '\t\tN-bkg\t',results.x[9]
+  m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
+  print '\t\tdeVaucouleurs Model Peak', np.max(m)
 
+  '''
   # I FIND IT PAYS TO KEEP THE MINIMIZATION GOING FOR A FEW MORE ROUNDS
   for k in range(0,4):
-    print '\tresults',results.x
-    x0,y0,amp0,amp1,amp2,amp3, amp_lens, r0_lens, q_lens, posang_lens, alpha, beta, N_bkg = results.x
-    m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
-    print '\tdeVaucouleurs Model Peak', np.max(m)
+    #print '\tresults',results.x
+    continue
     print 'MINIMIZATION ROUND',k+2
     results = opt.minimize(obj.moffat_chi_sq_w_lens, results.x,  args=(31, fl, x_images, y_images, x_lens, y_lens), method='Nelder-Mead')
+    x0,y0,amp0,amp1,amp2,amp3, amp_lens, r0_lens, q_lens, posang_lens, alpha, beta, N_bkg = results.x
+    print '\tresults'
+    print '\t\tx0\t',results.x[0]
+    print '\t\ty0\t',results.x[1]
+    print '\t\tamp0\t',results.x[2]
+    print '\t\tamp1\t',results.x[3]
+    print '\t\tamp2\t',results.x[4]
+    print '\t\tamp3\t',results.x[5]
+    print '\t\tamp_lens\t',results.x[6]
+    print '\t\tr0_lens\t',results.x[7]
+    print '\t\tq_lens\t',results.x[8]
+    print '\t\tposang_lens\t',results.x[9]
+    print '\t\talpha\t',results.x[10]
+    print '\t\tbeta\t',results.x[11]
+    print '\t\tN-bkg\t',results.x[12]
+    m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
+    print '\t\tdeVaucouleurs Model Peak', np.max(m)
     #results = opt.minimize(obj.moffat_chi_sq2, results.x,  args=(alpha, beta, 31, fl), method='Nelder-Mead')
+  '''
   print '\tresults',results.x
-  x0,y0,amp0,amp1,amp2,amp3, amp_lens, r0_lens, q_lens, posang_lens, alpha, beta, N_bkg = results.x
-  m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
-  print '\tdeVaucouleurs Model Peak', np.max(m)
+  #x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, r0_lens_fit, q_lens_fit, posang_lens_fit, alpha, beta, N_bkg = results.x
+  x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, alpha, beta, N_bkg = results.x
+  m = deVaucouleurs_model(x0, y0, amp_lens_fit, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
+  print '\tFitted deVaucouleurs Model Peak', np.max(m)
   # GET THE FITTED IMAGE MODEL
-  x0,y0,amp0,amp1,amp2,amp3, amp_lens, r0_lens, q_lens, posang_lens, alpha, beta, N_bkg = results.x
+  #x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, r0_lens_fit, q_lens_fit, posang_lens_fit, alpha, beta, N_bkg = results.x
+  #x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, r0_lens_fit, q_lens_fit, posang_lens_fit, alpha, beta, N_bkg = results.x
   #x0,y0,amp0,amp1,amp2,amp3, N_bkg = results.x
-  qim3 = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl, x_lens, y_lens, amp_lens, r0_lens, q_lens, posang_lens)
+  qim3 = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl, x_lens, y_lens, amp_lens_fit, r0_lens, q_lens, posang_lens)
 
-  m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
-  print 'deVaucouleurs Model Peak', np.max(m)
+  #m = deVaucouleurs_model(x0, y0, amp_lens_fit, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
+  #print 'deVaucouleurs Model Peak', np.max(m)
   '''
   plt.figure(figsize=(18,6))
   plt.subplot(131)
@@ -1463,7 +1545,8 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   plt.savefig('qim_test.png')
   '''
   # ESTIMATE ITS CHI VALUES, ITS PEAK CHI VALUE AND LOCATION ON THE MAP
-  chi_vals = obj.moffat_chi_vals_w_lens(results.x, 31, fl, x_images, y_images, x_lens, y_lens)
+  #chi_vals = obj.moffat_chi_vals_w_lens(results.x, 31, fl, x_images, y_images, x_lens, y_lens)
+  chi_vals = obj.moffat_chi_vals_w_lens_amp_only(results.x, 31, fl, x_images, y_images, x_lens, y_lens, r0_lens, q_lens, posang_lens)
   #chi_vals = obj.moffat_chi_vals2(results.x, alpha, beta,31, fl)
 
   chi_x_max, chi_y_max = np.unravel_index(np.abs(chi_vals).argmax(), chi_vals.shape)
@@ -1471,24 +1554,24 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   #print 'max chi x,y, val', chi_x_max, chi_y_max, np.max(np.abs(chi_vals))
   #print results.x
 
-  #################################################################################################
-  #           0   1     2    3    4     5         6        7       8            9     10    11     12
-  #theta2 = [x0, y0, amp0,amp1,amp2, amp3, amp_lens, r0_lens, q_lens, posang_lens, alpha, beta, N_bkg]
+  #########################################################################
+  #           0   1     2    3    4     5         6        7     8      9  
+  #theta2 = [x0, y0, amp0,amp1,amp2, amp3, amp_lens,   alpha, beta, N_bkg]
   xg, yg = np.mgrid[:31, :31]
 
-  parms1 = [results.x[2], results.x[10], results.x[11], 15, 15, results.x[12]]
+  parms1 = [results.x[2], results.x[7], results.x[8], 15, 15, results.x[9]]
   moffat_fit_image_1  = twoD_Moffat((xg, yg), *parms1).reshape(31,31)
 
-  parms2 = [results.x[3], results.x[10], results.x[11], 15, 15, results.x[12]]
+  parms2 = [results.x[3], results.x[7], results.x[8], 15, 15, results.x[9]]
   moffat_fit_image_2  = twoD_Moffat((xg, yg), *parms2).reshape(31,31)
 
-  parms3 = [results.x[4], results.x[10], results.x[11], 15, 15, results.x[12]]
+  parms3 = [results.x[4], results.x[7], results.x[8], 15, 15, results.x[9]]
   moffat_fit_image_3  = twoD_Moffat((xg, yg), *parms3).reshape(31,31)
 
-  parms4 = [results.x[5], results.x[10], results.x[11], 15, 15, results.x[12]]
+  parms4 = [results.x[5], results.x[7], results.x[8], 15, 15, results.x[9]]
   moffat_fit_image_4  = twoD_Moffat((xg, yg), *parms4).reshape(31,31)
 
-  parms5 = [results.x[6], results.x[7], results.x[8], results.x[9]]
+  parms5 = [results.x[6], r0_lens, q_lens, posang_lens]
 
   print '\t',parms1
   print '\t',parms2
@@ -1496,7 +1579,9 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   print '\t',parms4
   print '\t',parms5
   
-  FM.qsr_min_parms = results.x
+  if(emcee_level==2):
+    FM.qsr_min_parms = results.x
+
   '''
   plt.figure()
   plt.subplot(221)
@@ -1525,11 +1610,19 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   a4 = moffat_analytical_integral(results.x[5], alpha, beta)
   '''
 
+  '''
   print '\tpeaks', np.sum(moffat_fit_image_1-results.x[12]), np.sum(moffat_fit_image_2-results.x[12]), np.sum(moffat_fit_image_3-results.x[12]), np.sum(moffat_fit_image_4-results.x[12])
   a1 = np.sum(moffat_fit_image_1-results.x[12])
   a2 = np.sum(moffat_fit_image_2-results.x[12])
   a3 = np.sum(moffat_fit_image_3-results.x[12])
   a4 = np.sum(moffat_fit_image_4-results.x[12])
+  '''
+
+  print '\tpeaks', np.sum(moffat_fit_image_1-results.x[9]), np.sum(moffat_fit_image_2-results.x[9]), np.sum(moffat_fit_image_3-results.x[9]), np.sum(moffat_fit_image_4-results.x[9])
+  a1 = np.sum(moffat_fit_image_1-results.x[9])
+  a2 = np.sum(moffat_fit_image_2-results.x[9])
+  a3 = np.sum(moffat_fit_image_3-results.x[9])
+  a4 = np.sum(moffat_fit_image_4-results.x[9])
 
   e1 = np.sqrt( np.sum(moffat_fit_image_1) + FM.readnoise**2 )
   e2 = np.sqrt( np.sum(moffat_fit_image_2) + FM.readnoise**2 )
@@ -1634,6 +1727,23 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   plt.title('fitted Model Chi vals')
   plt.suptitle(obj.FM.fits_file_name.split('/')[-1],fontsize=20)
   plt.savefig(outputFileTag+'_quadFit.png', dpi=50)
+
+  print 'qim_lens posang_lens', posang_lens
+  qim_lens_prior = obj.quad_image_model(x0,y0,x_images,y_images, 0., 0., 0., 0., alpha, beta, 0., 31, fl, x_lens, y_lens, amp_lens, r0_lens, q_lens, posang_lens)
+  qim_lens_fit = obj.quad_image_model(x0,y0,x_images,y_images, 0., 0., 0., 0., alpha, beta, 0., 31, fl, x_lens, y_lens, amp_lens_fit, r0_lens, q_lens, posang_lens)
+  #qim_lens = obj.quad_image_model(x0,y0,x_images,y_images, 0., 0., 0., 0., alpha, beta, 0., 31, fl, x_lens, y_lens, amp_lens_fit, r0_lens_fit, q_lens_fit, posang_lens_fit)
+  plt.figure(figsize=(12,6))
+  plt.subplot(121)
+  plt.imshow(qim_lens_prior, interpolation='none', vmin=np.min(qim_lens_prior), vmax=np.max(qim_lens_prior))
+  plt.colorbar()
+  plt.contour(qim_lens_prior, colors='k')
+  plt.title('lensing galaxy prior')
+  plt.subplot(122)
+  plt.imshow(qim_lens_fit, interpolation='none', vmin=np.min(qim_lens_fit), vmax=np.max(qim_lens_fit))
+  plt.colorbar()
+  plt.contour(qim_lens_fit, colors='k')
+  plt.title('lensing galaxy fit')
+  plt.savefig(outputFileTag+'_lensgal.png', dpi=50)
 
   plt.figure()
   plt.hist(chi_vals.flat)
@@ -1833,6 +1943,253 @@ def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, b
   np.savez(outputFileTag+'_chains.npz', sampler.chain[:, 0:, :].reshape((-1, ndim)))
   print 'chain saving complete'
 
+##########################################
+
+def emceeQuadFitLensGal(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, beta_err, alpha_beta_corr_coeff, m1, m2, m3, m4, N_px, ra_images, dec_images, ra_lens, dec_lens, outputFileTag='out'):
+  print '\n\t####################################'
+  print   '\t# STARTING EMCEE ###################'
+  print   '\t####################################\n'
+  obj = SourceImage(FM, ra_qsr, dec_qsr, N_px)
+  N_bkg_guess = np.median(obj.image)
+
+  x0,y0, amp1, amp2, amp3, amp4, amp_lens, alpha_qsr, beta_qsr, N_bkg_qsr = FM.qsr_min_parms
+
+  # DETERMINE THE IMAGE ORIENTATION
+  xv,yv = FM.bigw.wcs_world2pix(ra_qsr,dec_qsr,1)
+  r0,d0 = FM.bigw.wcs_pix2world(xv,yv,1)
+  r1,d1 = FM.bigw.wcs_pix2world(xv+1,yv+1,1)
+  fl = True
+  if(r1-r0<0): fl =False
+  # convert image ra and dec from arcseconds to degrees
+  dec_images = dec_qsr + dec_images/3600.
+  ra_images = ra_qsr   + ra_images/3600.
+  print dec_images
+  print ra_images
+  x_images,y_images = FM.bigw.wcs_world2pix(ra_images,dec_images,1)
+  x_images -= xv - (N_px-1)/2
+  y_images -= yv - (N_px-1)/2
+  x_lens,y_lens = FM.bigw.wcs_world2pix(ra_lens,dec_lens,1)
+  x_lens -= xv - (N_px-1)/2
+  y_lens -= yv - (N_px-1)/2
+  r0_lens = 1.5/float(FM.hdulist[0].header['PIXSCALE'])
+  el_lens = 0.09
+  q_lens = 1./np.sqrt(1.-el_lens**2)
+  posang_lens = 174.8
+  print xv, x_images, x_lens
+  print yv, y_images, y_lens
+
+  # INITIAL ESTIMATE OF LENS AMPLITUDE ASSUMING IT IS IN THE SCALE OF THE NOISE
+  #print 'amp_lens initialize', N_bkg_qsr, FM.readnoise
+  #amp_lens = 126669.015793*np.sqrt(N_bkg_qsr + FM.readnoise**2)*r0_lens**2
+
+
+  #amp1 = 10**((m1-ZP_mean)/(-2.5))
+  #amp2 = 10**((m2-ZP_mean)/(-2.5))
+  #amp3 = 10**((m3-ZP_mean)/(-2.5))
+  #amp4 = 10**((m4-ZP_mean)/(-2.5))
+  #N_bkg = np.median(obj.image)
+
+  #obj = SourceImage(FM, ra_qsr, dec_qsr, N_px)
+
+  seeing_cov = np.array([[alpha_err**2, alpha_beta_corr_coeff*alpha_err*beta_err],
+			 [ alpha_beta_corr_coeff*alpha_err*beta_err, beta_err**2]])
+  det = np.linalg.det(seeing_cov)
+  seeing_icov = np.linalg.inv(seeing_cov)
+  print 'seeing_cov', seeing_cov
+  print 'seeing_det', det
+  print 'seeing_icov', seeing_icov
+  def lnprior(_theta):
+    _x0, _y0, \
+    _amplitude0, \
+    _amplitude1, \
+    _amplitude2, \
+    _amplitude3, \
+    _amp_lens, \
+    _r0_lens, \
+    _q_lens, \
+    _posang_lens, \
+    _alpha, \
+    _beta, \
+    _N_bkg = _theta
+    #print 'N_bkg_guess', N_bkg_guess
+    #exit()
+
+
+    if  np.abs(_x0)<N_px \
+	and np.abs(_y0)<N_px \
+	and _amplitude0>0. and _amplitude0<100.*amp1\
+	and _amplitude1>0. and _amplitude1<100.*amp2\
+	and _amplitude2>0. and _amplitude2<100.*amp3\
+	and _amplitude3>0. and _amplitude3<100.*amp4\
+	and _r0_lens>1.35/float(FM.hdulist[0].header['PIXSCALE']) and _r0_lens<1.65/float(FM.hdulist[0].header['PIXSCALE']) \
+	and _q_lens>1.002 and _q_lens<1.006 \
+	and _posang_lens>171.4 and _posang_lens<178.2\
+	and _alpha>0. and _alpha < 100.*alpha\
+	and _beta>0. and  _beta  < 100.*beta \
+	and _N_bkg>0. and _N_bkg < 100.*N_bkg_guess:
+          seeing_diff = np.array([alpha-_alpha, beta-_beta])
+          lnp = -np.dot( seeing_diff, np.dot(seeing_icov,seeing_diff) )/2.0
+          #print 'lnp', lnp
+	  return lnp
+    else:
+        '''
+        print '\t',np.abs(_x0),N_px
+        print '\t',np.abs(_y0),N_px 
+        print '\t',_amplitude0, 0., 100.*amp1
+        print '\t',_amplitude1, 0., 100.*amp2
+        print '\t',_amplitude2, 0., 100.*amp3
+        print '\t',_amplitude3, 0., 100.*amp4
+        print '\t',_r0_lens, 1.35/float(FM.hdulist[0].header['PIXSCALE']), 1.65/float(FM.hdulist[0].header['PIXSCALE']) 
+        print '\t',_q_lens, 1.002, 1.006 
+        print '\t',_posang_lens, 171.4, 178.2
+        print '\t',_alpha, 0., 100.*alpha
+        print '\t',_beta,  0., 100.*beta 
+        print '\t',_N_bkg, 0., 100.*N_bkg_guess
+        print 'lnp is -infinity'
+        '''
+        return -np.inf
+
+  def lnprob(theta, obj, N_pix, flip):
+    lp = lnprior(theta)
+    #print lp, theta
+    if not np.isfinite(lp):
+        return -np.inf
+    #mll = obj.moffat_chi_sq(theta, N_pix, flip, x_images, y_images)
+    mll = obj.moffat_chi_sq_w_lens(theta, N_pix, flip, x_images, y_images, x_lens, y_lens)
+    #print mll
+    if not np.isfinite(mll):
+        return -np.inf
+    #print '%1.2e\t%1.2e'%(lp,mll), theta
+    return lp - mll
+
+
+
+  #################################################
+  #################################################
+  #################################################
+
+  # RUN MC!
+  x0,y0,amp1,amp2,amp3,amp4, amp_lens, alpha, beta, N_bkg = FM.qsr_min_parms
+  theta = [x0,y0,amp1,amp2,amp3,amp4, amp_lens, r0_lens, q_lens, posang_lens, alpha, beta, N_bkg]
+  #theta = [x0,y0,amp1,amp2,amp3,amp4, alpha, beta, N_bkg]
+
+  print theta
+
+  ndim =len(theta)
+  print 'ndim', ndim
+  nwalkers = 100
+  n_burn_in_iterations = 10
+  n_iterations = 10000
+
+  
+  prior_vals=theta
+  pos = [prior_vals + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
+  r=np.random.randn(ndim)
+  sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(obj,N_px, fl))
+
+  #print 'burn-in sampler.run_mcmc'
+  sampler.run_mcmc(pos, n_burn_in_iterations)
+
+  samples = sampler.chain[:, int(0.5*float(n_burn_in_iterations)):, :].reshape((-1, ndim))
+  print("\tMean acceptance fraction: {0:.3f}".format(np.mean(sampler.acceptance_fraction)))
+  parms = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]), zip(*np.percentile(samples, [16, 50, 84],axis=0)))
+  #labels = [ r"$x_0$", r"$y_0$", "amp1", "amp2", "amp3", "amp4", r"$\alpha$", "$\beta$", "N$_{bkg}$"]
+  labels = [ "x0", "y0", "amp1", "amp2", "amp3", "amp4", "amp_lens", "r0_lens", "q_lens", "posang_lens", "alpha", "beta", "N_bkg"]
+  fig= triangle.corner(samples, labels=labels)
+  count=0
+  for ax in fig.get_axes():
+    count+=1
+    #ax.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+    #ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+    if((count-1)%ndim==0 ): 
+	ax.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+	ax.xaxis.set_label_coords( 0.5, -0.5)
+	ax.yaxis.set_label_coords(-0.5, 0.5)
+
+    if(count>=ndim*(ndim-1)): 
+	ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+	ax.xaxis.set_label_coords( 0.5, -0.5)
+	ax.yaxis.set_label_coords(-0.5,  0.5)
+
+  plt.subplots_adjust(bottom=0.075, left=0.075)
+  fig.savefig("%s_burn_in_triangle.png"%(outputFileTag))
+
+  for k in range(0,len(parms)):
+    print '%s\t%+1.2e\t%+1.2e\t%+1.2e\t%+1.2e'%(labels[k], theta[k], parms[k][0],parms[k][1],parms[k][2])
+
+  #exit()
+  
+  sampler.reset()
+  for k in range(0,n_iterations/1000):
+      sampler.run_mcmc(pos, 1000)
+      print ''
+      print k+1, (sampler.chain).shape, datetime.datetime.now()
+      samples = sampler.chain[:, int(0.5*float((k+1)*100)):, :].reshape((-1, ndim))
+      print("\tMean acceptance fraction: {0:.3f}".format(np.mean(sampler.acceptance_fraction)))
+      parms = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]), zip(*np.percentile(samples, [16, 50, 84],axis=0)))
+
+      #print parms.shape
+      #print parms[k][0]
+
+      for k in range(0,len(parms)):
+        print '%s\t%+1.2e\t%+1.2e\t%+1.2e\t%+1.2e'%(labels[k], theta[k], parms[k][0],parms[k][1],parms[k][2])
+
+      fig= triangle.corner(samples, labels=labels)
+      count=0
+      for ax in fig.get_axes():
+        count+=1
+        #ax.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+        #ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+        if((count-1)%ndim==0 ): 
+	    ax.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+	    ax.xaxis.set_label_coords( 0.5, -0.5)
+	    ax.yaxis.set_label_coords(-0.5, 0.5)
+
+        if(count>=ndim*(ndim-1)): 
+	    ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+	    ax.xaxis.set_label_coords( 0.5, -0.5)
+	    ax.yaxis.set_label_coords(-0.5,  0.5)
+
+      plt.subplots_adjust(bottom=0.075, left=0.075)
+      fig.savefig("%s_triangle.png"%(outputFileTag))
+
+      np.savez(outputFileTag+'_chains.npz', sampler.chain[:, 0:, :].reshape((-1, ndim)))
+      print 'chain saving complete'
+
+  '''
+  sampler.run_mcmc(pos, n_iterations)
+  samples = sampler.chain[:, int(0.5*float(n_iterations)):, :].reshape((-1, ndim))
+  print("\tMean acceptance fraction: {0:.3f}".format(np.mean(sampler.acceptance_fraction)))
+  parms = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]), zip(*np.percentile(samples, [16, 50, 84],axis=0)))
+
+  #print parms.shape
+  #print parms[k][0]
+
+  for k in range(0,len(parms)):
+    print '%s\t%+1.2e\t%+1.2e\t%+1.2e\t%+1.2e'%(labels[k], theta[k], parms[k][0],parms[k][1],parms[k][2])
+
+  fig= triangle.corner(samples, labels=labels)
+  count=0
+  for ax in fig.get_axes():
+    count+=1
+    #ax.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+    #ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+    if((count-1)%ndim==0 ): 
+	ax.yaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+	ax.xaxis.set_label_coords( 0.5, -0.5)
+	ax.yaxis.set_label_coords(-0.5, 0.5)
+
+    if(count>=ndim*(ndim-1)): 
+	ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter(useOffset=False))
+	ax.xaxis.set_label_coords( 0.5, -0.5)
+	ax.yaxis.set_label_coords(-0.5,  0.5)
+
+  plt.subplots_adjust(bottom=0.075, left=0.075)
+  fig.savefig("%s_triangle.png"%(outputFileTag))
+
+  np.savez(outputFileTag+'_chains.npz', sampler.chain[:, 0:, :].reshape((-1, ndim)))
+  print 'chain saving complete'
+  '''
 def flux2magnitude(flux):
     #for k in range(0,len(flux)):
     #    if(flux[k]<=0.):
