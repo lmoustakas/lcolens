@@ -124,7 +124,7 @@ class FITSmanager:
 		plt.subplot(221)
 		plt.imshow(img, interpolation='none', cmap='viridis')
 		plt.colorbar()
-		plt.title('Random Image Sub-Stamp')
+		plt.title('Random Image\nSub-Stamp')
 		plt.xlabel('pixel')
 		plt.ylabel('pixel')
 		plt.subplot(222)
@@ -132,6 +132,7 @@ class FITSmanager:
 		plt.plot(x,gauss_1d(x,*popt), 'r--', lw=2) 
 		plt.title('Distribution of Counts\nw/ Gaussian Fit')
 		plt.xlabel('CCD Counts')
+		plt.xticks(rotation=45)
 		plt.subplot(212)
 		print 'median read noise', np.median(readnoise)
 		a,b,c = plt.hist(readnoise, bins=int(np.max(readnoise))+5, range=(0,np.max(readnoise)+5))
@@ -141,7 +142,7 @@ class FITSmanager:
 		plt.xlabel('Read Noise, CCD counts')
 		plt.title('Multiple Read Noise Estimates')
 		plt.suptitle(self.fits_file_name.split('/')[-1], fontsize=20)
-		plt.subplots_adjust(top=0.85, bottom=0.1, wspace=0.3, hspace=0.4, left=0.1, right=0.95)
+		plt.subplots_adjust(top=0.85, bottom=0.1, wspace=0.3, hspace=0.45, left=0.1, right=0.95)
 		plt.savefig(out+'.png', dpi=50)
 	#return self.readnoise
 	
