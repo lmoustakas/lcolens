@@ -91,7 +91,7 @@ class FITSmanager:
 		img = self.image_piece(r, d, 31)
 		#img/=float(self.hdulist[0].header['GAIN']) # remove gain correction. read noise is on electrons, not photons ?		
 		count = 0
-		while(np.max(img)>np.median(img)+5.*np.sqrt(np.median(img))):
+		while(np.max(img)>np.median(img)+5.*np.sqrt(np.median(img)) or np.min(img)<np.median(img)-5.*np.sqrt(np.median(img))):
 			count+=1
 	  		#print 'trial', count
 			x = np.random.randint(100, self.image_data.shape[0]-100)
