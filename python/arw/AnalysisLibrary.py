@@ -80,6 +80,7 @@ class FITSmanager:
 
   def estimate_read_noise(self, display=0, out = 'out'):
 	readnoise=[]
+	gain = self.hdulist[0].header['GAIN']
 	for k in range(1000):
 		#print self.image_data.shape
 		x = np.random.randint(100, self.image_data.shape[0]-100)
@@ -108,9 +109,9 @@ class FITSmanager:
 			continue
 		if(popt[0]<=0. or popt[2]<0):
 			continue
-		if(popt[1]**2 - popt[2] <= 0.):
+		if(popt[1]**2 - popt[2]/gain <= 0.):
 			continue
-		rn = np.sqrt(popt[1]**2 - popt[2])
+		rn = np.sqrt(popt[1]**2 - popt[2]/gain)
 		if(rn == rn):
 			readnoise.append(rn)
 	 		#print k,'readnoise', popt[1]-np.sqrt(popt[0])
