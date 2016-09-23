@@ -139,11 +139,12 @@ class FITSmanager:
 		plt.plot([np.median(readnoise), np.median(readnoise)],[0., 1.2*max(a)],'r-', lw=2, label='median')
 		plt.legend(loc=1)
 		plt.ylim(0.,1.2*max(a))
-		plt.xlabel('Read Noise, CCD counts')
-		plt.title('Multiple Read Noise Estimates')
+		plt.xlabel('System Noise, CCD counts')
+		plt.title('Multiple System Noise Estimates')
 		plt.suptitle(self.fits_file_name.split('/')[-1], fontsize=20)
 		plt.subplots_adjust(top=0.85, bottom=0.1, wspace=0.3, hspace=0.45, left=0.1, right=0.95)
 		plt.savefig(out+'.png', dpi=50)
+		plt.savefig(out+'.pdf')
 	#return self.readnoise
 	
 
