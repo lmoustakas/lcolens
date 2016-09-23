@@ -73,7 +73,9 @@ class FITSmanager:
     self.image_data = self.hdulist[0].data
 
     # MULTIPLY BY THE GAIN
-    self.image_data *= float(self.hdulist[0].header['GAIN'])
+    # this has been commented out. We model the noise variance for CCD values throughout. 
+    # self.image_data *= float(self.hdulist[0].header['GAIN'])
+    print 'GAIN', self.hdulist[0].header['GAIN']
     self.bigw=wcs.WCS(self.hdulist[0].header)
 
   def estimate_read_noise(self, display=0, out = 'out'):
@@ -316,6 +318,134 @@ class FITSmanager:
     ax3.text(3.8, 3.5, 'Residuals', fontsize=30, color='black', fontweight='bold')
 
     #plt.title('Residuals')
+
+  def plot_image_movie_lens_gal(self, ra, dec, ra_images, dec_images, ra_lens, dec_lens, ax1, ax2, ax3, ZP_flx, theta, dx=0., dy=0.,Npx=31, out='out'):
+    # GET THE QUASAR IMAGE
+    x0, y0, amp1, amp2, amp3, amp4, amp_lens, r0_lens, q_lens, posang_lens,  alpha, beta, nbkg = theta
+    fl = self.isFlipped(ra,dec)
+        # convert quasar and quasar image positions to pixel locations
+    x,y = self.bigw.wcs_world2pix(ra,dec,1)
+    print ra_images, dec_images
+    dec_images = dec + dec_images/3600.
+    ra_images = ra   + ra_images/3600./np.cos(dec*np.pi/180.)
+    x_images,y_images = self.bigw.wcs_world2pix(ra_images,dec_images,1)
+    x_images -= x - (Npx-1)/2
+    y_images -= y - (Npx-1)/2
+    x_lens,y_lens = self.bigw.wcs_world2pix(ra_lens,dec_lens,1)
+    x_lens -= x - (Npx-1)/2
+    y_lens -= y - (Npx-1)/2
+    print x, x_images
+    print y, y_images
+
+        # get data and model images
+    obj = SourceImage(self, ra, dec, Npx)
+    qim = obj.quad_image_model(x0, y0, x_images, y_images, amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl, x_lens=x_lens, y_lens=y_lens, amp_lens=amp_lens, r0_lens=r0_lens, q_lens=q_lens, posang_lens=posang_lens)
+    #qim = obj.quad_image_model(0., 0., x_images, y_images, amp1, amp2, amp3, amp4, alpha, beta, nbkg, Npx, fl)
+    '''
+    plt.figure()
+    plt.subplot(121)
+    plt.imshow(obj.image, interpolation='none')
+    plt.contour(obj.image, colors='k')
+    plt.subplot(122)
+    plt.imshow(qim, interpolation='none')
+    plt.contour(obj.image)
+    #plt.contour(self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1])
+    print x,y,x0,y0
+    plt.savefig('tmp.png')
+        '''
+
+
+    x_img, y_img = obj.quad_image_pix_ref(x0, y0, x_images, y_images, fl)
+    x_img -= (Npx-1)/2+1
+    y_img -= (Npx-1)/2+1
+    yg, xg =      np.mgrid[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+    r, d = self.bigw.wcs_pix2world(xg-y0,yg-x0, 1)
+    d = (d-dec)*3600.
+    r = (r-ra) * np.cos(dec*np.pi/180.)*3600.
+    fwhm = alpha*2.*np.sqrt(2.**(1/beta)-1.)*float(self.hdulist[0].header['PIXSCALE'])
+
+    #vals = self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+    #vals = self.image_data[y-(Npx-1)/2:y+(Npx-1)/2+1,x-(Npx-1)/2:x+(Npx-1)/2+1]
+    vals = obj.image
+    min_ra = -4.
+    max_ra = 4.
+    min_dec = -4.
+    max_dec = 4.
+    vals -= nbkg
+    vals*=ZP_flx
+    #template = 0.*vals.copy()
+    #for i in range(0,4):
+    #    template[int(np.rint(y_im[i])-y+(Npx-1)/2),int(np.rint(x_im[i])-x+(Npx-1)/2)]=3.e-9
+    vals0 = vals.copy()
+    #print xg.shape, yg.shape, vals.shape
+    ax1 = plt.subplot(3,2,2)
+    #plt.pcolor(xg-x, yg-y, vals, cmap='jet', vmin=0., vmax=3.8e-9)
+    plt.pcolor(r, d, vals, cmap='jet', vmin=0., vmax=3.8e-9)
+    cb = plt.colorbar()
+    plt.plot([min_ra,max_ra], [0.,0.], 'k--')
+    plt.plot([0.,0.], [min_dec,max_dec], 'k--')
+
+    plt.axis('equal')
+    plt.xlim(max_ra, min_ra)
+    plt.ylim(min_dec, max_dec)
+    y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax1.yaxis.set_major_formatter(y_formatter)
+    x_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax1.xaxis.set_major_formatter(x_formatter)
+    #plt.xticks(rotation=30)
+    #plt.title('x0 %1.3f y0 %1.3f'%(x0,y0))
+    #plt.title('Data')
+    plt.xlabel('$\Delta$RA,  arcseconds')
+    plt.ylabel('$\Delta$Dec, arcseconds')
+    ax1.text( 3.8,  3.5, 'Data', fontsize=30, color='white', fontweight='bold')
+    ax1.text( 3.0,  0.0, 'M1', fontsize=30, color='white', fontweight='bold')
+    ax1.text(-2.0, -0.5, 'M2', fontsize=30, color='white', fontweight='bold')
+    ax1.text( 0.0,  2.0, 'S1', fontsize=30, color='white', fontweight='bold')
+    ax1.text(0.5, -2.75, 'S2', fontsize=30, color='white', fontweight='bold')
+
+    ax2 = plt.subplot(3,2,4)
+
+    qim -= nbkg
+    qim *= ZP_flx
+    #plt.pcolor(xg-x,yg-y,qim, cmap='jet', vmin=0., vmax=3.8e-9)
+    plt.pcolor(r,d,qim, cmap='jet', vmin=0., vmax=3.8e-9)
+    cb = plt.colorbar()
+    plt.plot([min_ra,max_ra], [0.,0.], 'k--')
+    plt.plot([0.,0.], [min_dec,max_dec], 'k--')
+    plt.axis('equal')
+    plt.xlim(max_ra, min_ra)
+    plt.ylim(min_dec, max_dec)
+    y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax2.yaxis.set_major_formatter(y_formatter)
+    x_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax2.xaxis.set_major_formatter(x_formatter)
+    #plt.xticks(rotation=30)
+    plt.xlabel('$\Delta$RA,  arcseconds')
+    plt.ylabel('$\Delta$Dec, arcseconds')
+    #plt.title('Model')
+    ax2.text(3.8, 3.5, 'Model', fontsize=30, color='white', fontweight='bold')
+
+    circle1=plt.Circle((3,-3),fwhm/2.,color='white', fill=False, linewidth=3, linestyle='dashed')
+    plt.gcf().gca().add_artist(circle1)
+    #plt.circles(3, -3, fwhm/2., alpha=1, lw=5, edgecolor='white', transform=ax2.transAxes)
+    ax3 = plt.subplot(3,2,6)
+    #plt.pcolor(xg-x,yg-y,vals-qim)
+    plt.pcolor(r,d,vals-qim, vmin=-5.5e-10, vmax=5.5e-10)
+    cb = plt.colorbar()
+    plt.plot([min_ra,max_ra], [0.,0.], 'k--')
+    plt.plot([0.,0.], [min_dec,max_dec], 'k--')
+    plt.axis('equal')
+    plt.xlim(max_ra, min_ra)
+    plt.ylim(min_dec, max_dec)
+    y_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax3.yaxis.set_major_formatter(y_formatter)
+    x_formatter = matplotlib.ticker.ScalarFormatter(useOffset=False)
+    ax3.xaxis.set_major_formatter(x_formatter)
+    #plt.xticks(rotation=30)
+    plt.xlabel('$\Delta$RA,  arcseconds')
+    plt.ylabel('$\Delta$Dec, arcseconds')
+    ax3.text(3.8, 3.5, 'Residuals', fontsize=30, color='black', fontweight='bold')
+
 
     
   def image_piece(self,ra, dec, pixels):
