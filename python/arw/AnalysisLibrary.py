@@ -12,6 +12,8 @@ import pylab as plt
 import scipy.optimize as opt
 from scipy.optimize import minimize
 from scipy.optimize import leastsq
+from scipy.special import genlaguerre
+from scipy.misc import factorial
 import matplotlib
 from scipy import signal
 import emcee
@@ -21,6 +23,7 @@ import psf
 import integrate
 integrate = integrate.integrate()
 import time
+from matplotlib.colors import LogNorm
 
 def time_order_fits_files(data_dir):
 	# GET ALL DATA FILE NAMES IN DATA DIRECTORY AND SORT THEM BY MJD
@@ -61,7 +64,7 @@ def time_order_fits_files(data_dir):
 ################################################################################################################
 
 class FITSmanager:
-  def __init__(self,fits_file_name):
+  def __init__(self,fits_file_name, nmax, mmax):
     self.fits_file_name = fits_file_name
     self.hdulist = fits.open(fits_file_name)
     #self.hdulist.info()
@@ -77,6 +80,9 @@ class FITSmanager:
     # self.image_data *= float(self.hdulist[0].header['GAIN'])
     print 'GAIN', self.hdulist[0].header['GAIN']
     self.bigw=wcs.WCS(self.hdulist[0].header)
+    # Shapelet modes to be included in PSF
+    self.nmax = nmax
+    self.mmax = mmax
 
   def estimate_read_noise(self, display=0, out = 'out'):
 	readnoise=[]
@@ -578,6 +584,7 @@ def twoD_Moffat_proj(x, amplitude, alpha, beta, xo, yo, offset):
 #####################################################################################################################
 #####################################################################################################################
 
+
 class SourceImage:
   def __init__(self,FM, ra,dec, pixels):
     self.FM = FM
@@ -586,11 +593,230 @@ class SourceImage:
     self.dec = dec
     self.pixels = pixels
 
+    # Mask bad values
+    self.image = np.ma.masked_where(self.image<=0,self.image)
+    '''
+    # find ratio of nearest neighbors
+    Nx,Ny = self.image.shape
+    mask = np.zeros(self.image.shape)
+    for i in range(0,Nx):
+      for j in range(0,Ny):
+        min_ratio=1.e9
+        for di in [-1,0,1]:
+          for dj in [-1,0,1]:
+            if(i+di>=0 and i+di<Nx and j+dj>0 and j+dj<Nx and (di!=0 and dj!=0)):
+		#print i,j,di,dj 		
+		ratio = self.image[i][j]/self.image[i+di][j+dj]
+	        #print 'ratio', ratio
+		if(ratio<min_ratio):
+			min_ratio = ratio
+	#if(min_ratio>1.): print min_ratio
+        if(min_ratio>1.5):
+		print 'MASKING PIXEL',i,j
+		mask[i][j]=1
+    self.image = np.ma.masked_where(mask==1,self.image)
+    '''
   '''
   def stacked_twoD_Moffat_chi(self, theta, readnoise):
       chisq=0.
       for k in range(0,len(self.PSFimage_data))
   '''
+  def fit_shapelets(self, readnoise, nmax, mmax, verbose=False, display=0):
+    if(verbose): print 'fitting shapelets'
+
+    x=np.arange(0.,len(self.image))
+    y=np.arange(0.,len(self.image))
+    self.xg, self.yg = np.mgrid[:len(self.image), :len(self.image)]
+
+    # estimate centroid
+    self.x_max, self.y_max = np.unravel_index(self.image.argmax(), self.image.shape)
+    print '\tx_max, y_max', self.x_max, self.y_max
+    x0_guess = self.x_max
+    y0_guess = self.y_max
+    x0_guess = float(x0_guess - (len(x)- 1) / 2) 
+    y0_guess = float(y0_guess - (len(y)- 1) / 2)
+    print '\tx0_guess, y0_guess', x0_guess, y0_guess
+
+    # estimate background counts
+    background_count_guess = np.min(self.image)
+    print '\tbackground_count_guess ', background_count_guess  
+
+    # plot the image is you get a negative values. This sometimes happens... We may want to mask these pixels.
+    if(background_count_guess<0.): 
+      print np.median(self.image)
+      plt.figure()
+      plt.imshow(self.image, interpolation='none')
+      plt.colorbar()
+      plt.savefig('wtf.png')
+      #exit()
+
+    # estimate fwhm
+    pk = np.max(self.image)
+    fwhm=1.
+    print '\tpk, fwhm', pk, fwhm
+    for dx in range(0,15):
+        val_a = self.image[self.x_max + dx, self.y_max]
+        val_b = self.image[self.x_max + dx+1, self.y_max]
+        if(val_a>=pk/2. and val_b<=pk/2.):
+	     fwhm = dx+0.5
+	     break
+    print '\tcrude fwhm', fwhm
+
+    if(verbose): print 'initial guess', self.initial_guess_moffat
+    if(verbose): print len(self.image)
+
+    # guess shapelet beta parameter
+    guess_beta = fwhm/1.4
+    # initizalize shapelet parameter array
+    print 'NMAX', nmax
+    #params = np.zeros(((nmax+1)*(nmax+2))//2) 
+    params = np.zeros(psf.num_params(nmax, mmax))
+    params[0]=self.image[self.x_max,self.y_max]*np.sqrt(np.pi)*guess_beta # peak value Gaussian
+    print 'NMAX', nmax, len(params)
+    #print params
+    #xo = float(x0_guess - (len(x)- 1) / 2)
+    #yo = float(y0_guess - (len(y)- 1) / 2)
+    self.initial_guess_shapelets = np.concatenate([[x0_guess, y0_guess, guess_beta, background_count_guess],params])
+
+    print self.initial_guess_shapelets
+    print 'xg.shape', self.xg.shape
+    m = psf.shapelet_image(self.xg - (len(x)- 1) / 2, self.yg - (len(y)- 1) / 2, nmax, mmax, x0_guess, y0_guess, guess_beta, params) + background_count_guess 
+    d = m-self.image
+    spim = self.polarShapelet((self.xg, self.yg), *self.initial_guess_shapelets).reshape(self.xg.shape)
+    dspim = spim-self.image
+    gain = self.FM.hdulist[0].header['GAIN']
+    sigmas = np.sqrt( self.FM.readnoise**2 + self.image/gain )
+
+    self.fit_ok = True
+    #popt, pcov = opt.curve_fit(self.polarShapelet, (self.xg, self.yg), self.image.ravel(), p0=self.initial_guess_shapelets)
+    popt, pcov = opt.curve_fit(self.polarShapelet, (self.xg, self.yg), self.image.ravel(), sigma = sigmas.ravel(), p0=self.initial_guess_shapelets)
+    #popt, pcov = opt.curve_fit(self.polarShapelet, (self.xg, self.yg), self.image.ravel(), sigma = sigmas.ravel(), p0=popt)
+    if(np.isnan(pcov).any() or np.isinf(pcov).any()):
+        self.fit_ok = False
+    print popt
+    self.shapelet_fit_parameters = popt
+    self.shapelet_fit_covariance = pcov
+    #spim_ss = psf.shapelet_kernel(popt, nmax, mmax, len(x), len(y))
+    spim_ss = self.polarShapelet((self.xg, self.yg), *popt).reshape(self.xg.shape)
+    dspim_ss = spim_ss-self.image
+    self.shapelet_fit_image = spim_ss
+    chi_sq =  np.sum( (dspim_ss/sigmas)**2 )/float(len(sigmas.ravel()) - len(params))
+    max_chi = np.max( np.abs( dspim_ss/sigmas ) )
+    print 'chis_sq, max_chi', chi_sq, max_chi  
+    chi = dspim_ss/sigmas
+    print 'chi from mad', 1.4826*np.median(np.abs(chi - np.median(chi)))
+    #print '\tpopt',popt
+    #print '\tpcov',np.sqrt(pcov[0][0]), np.sqrt(pcov[0][0])/popt[0], np.linalg.det(pcov)
+    #EXTRACT CCD COUNT INTEGRAL FROM PSF COEFFICIENTS
+    # get a list of coefficients with m=0
+    nm_list = psf.get_nm(nmax, mmax)
+    fn0_list = []
+    fn_indices = []
+    beta_fit = popt[2]
+    for k in range(0,len(nm_list)):
+        if(nm_list[k][1]==0):
+            fn0_list.append(popt[k+4])
+            fn_indices.append(k+4)
+    #print 'len(fn0_list), nmax',len(fn0_list), nmax     
+    S_CCD = np.sum(fn0_list)*2*np.sqrt(np.pi)*beta_fit
+    #print 'pcov',pcov
+    #print 'pcov[2][fn_indices]', pcov[2][fn_indices]
+    #print 'fn_indices', fn_indices
+    #print 'pcov.shape', pcov.shape
+    ixgrid = np.ix_(fn_indices, fn_indices)
+    #print 'ixgrid', ixgrid
+    #print 'pcov[ixgrid]',pcov[ixgrid], pcov[ixgrid].shape
+
+    print '(1)', 4. * np.pi * np.sum(fn0_list)**2 * pcov[2][2]  
+    print '(2)', 4. * np.pi * popt[2] * np.sum( np.outer( pcov[2][fn_indices] , popt[fn_indices] ) )
+    print '(3)', 4. * np.pi * popt[2]**2 * np.sum( pcov[ np.ix_( fn_indices, fn_indices ) ] )
+
+    sig2_S_CCD  = 4. * np.pi * np.sum(fn0_list)**2 * pcov[2][2]
+    sig2_S_CCD += 4. * np.pi * popt[2] * np.sum( np.outer( pcov[2][fn_indices] , popt[fn_indices] ) )
+    sig2_S_CCD += 4. * np.pi * popt[2]**2 * np.sum( pcov[ np.ix_( fn_indices, fn_indices ) ] )
+
+    print 'S_CCD', S_CCD, np.sum(spim_ss - popt[3])*1.266
+    print 'sig2_S_CCD', sig2_S_CCD, np.sqrt(sig2_S_CCD), np.sqrt(sig2_S_CCD)/S_CCD 
+    # add some conditions to identify a bad fit here
+
+    if(display>2):
+        plt.figure(figsize=(12,6))
+        plt.subplot(121)
+        plt.imshow(m, interpolation='none', cmap='viridis')
+        plt.colorbar()
+        plt.title('Guess Image')
+        plt.subplot(122)
+        vv = np.max(np.abs(d))
+        plt.imshow(d, interpolation='none', vmin = -vv, vmax=vv, cmap='seismic')
+        plt.colorbar()
+        plt.xlabel('pixel')
+        plt.ylabel('pixel')
+        plt.title('Guess - Data')
+
+        plt.figure(figsize=(12,6))
+        plt.subplot(121)
+        plt.imshow(spim, interpolation='none', cmap='viridis')
+        plt.colorbar()
+        plt.title('Guess Image')
+        plt.subplot(122)
+        vv = np.max(np.abs(dspim))
+        plt.imshow(dspim, interpolation='none', vmin = -vv, vmax=vv, cmap='seismic')
+        plt.colorbar()
+        plt.xlabel('pixel')
+        plt.ylabel('pixel')
+        plt.title('Guess - Data')
+
+        plt.figure(figsize=(12,6))
+        plt.subplot(121)
+        plt.imshow(spim_ss, interpolation='none', cmap='viridis')
+        plt.colorbar()
+        plt.title('Fitted Image')
+        plt.subplot(122)
+        vv = np.max(np.abs(dspim_ss))
+        plt.imshow(dspim_ss, interpolation='none', vmin = -vv, vmax=vv, cmap='seismic')
+        plt.colorbar()
+        plt.xlabel('pixel')
+        plt.ylabel('pixel')
+        plt.title('Fit - Data')
+
+        plt.figure(figsize=(12,6))
+        plt.subplot(121)
+        plt.hist((dspim_ss/sigmas).ravel())
+        plt.title('Chi Values')
+        plt.subplot(122)
+        vv = np.max(np.abs(dspim_ss/sigmas))
+        plt.imshow(dspim_ss/sigmas, interpolation='none', vmin = -vv, vmax=vv, cmap='seismic')
+        plt.colorbar()
+        plt.xlabel('pixel')
+        plt.ylabel('pixel')
+        plt.title('Chi Values')
+
+        plt.figure(figsize=(12,6))
+        psd2 = np.abs(np.fft.fft2(dspim_ss/sigmas))  
+        plt.subplot(121)
+        plt.hist(psd2.ravel())
+        plt.title('Residuals Power Spectrum ')
+        plt.subplot(122)
+        vv = np.max(np.abs(psd2))
+        plt.imshow(np.fft.fftshift(psd2), interpolation='none', cmap='viridis', norm=LogNorm())
+        plt.colorbar()
+        plt.xlabel('pixel')
+        plt.ylabel('pixel')
+        plt.title('Power Spectrum of Residuals')
+
+    return S_CCD, np.sqrt(sig2_S_CCD), chi_sq, max_chi, popt
+
+  def polarShapelet(self, (x, y), *parameters):
+    m = psf.shapelet_kernel(parameters, self.FM.nmax, self.FM.mmax, nx = len(x), ny = len(y))
+    bkg = parameters[3]
+    m = np.rot90(m)
+    m = np.flipud(m)
+    #m = amplitude*PSF_model + offset
+    if(parameters[2]<0. or parameters[3]<0.): 
+        m+=1.e9
+    return m.ravel() + bkg
+
+
   def twoD_Moffat_chi(self, theta, readnoise):
     model = twoD_Moffat((self.xg, self.yg), *theta).reshape(len(self.image),len(self.image))
     return (self.image-model)/np.sqrt(self.image + readnoise**2)
@@ -691,7 +917,6 @@ class SourceImage:
     self.moffat_chi = (self.image-self.moffat_fit_image)/np.sqrt(self.image + readnoise**2)
     print '\tmoffat estimate chi_sq', np.sum(self.moffat_chi**2)/len(self.moffat_chi)
     return popt
-
 
   def fit_elliptical_moffat(self, verbose=False):
     if(verbose): print 'fitting'
@@ -1117,14 +1342,11 @@ def fitter(image, p0):
 ####################################################################
 
 def estimate_total_light(obj, N_bkg, sigma_read, display=0, out='out'):
-  obj.fit_moffat(sigma_read)
-  #print obj.moffat_parms
-  alpha = obj.moffat_parms[1]
-  beta = obj.moffat_parms[2]
-  #print 'a,b',alpha,beta
-  # DO SOME COOKIE CUT OUT STUFF LATER, FOR NOW ESTIMATE BY THE NUMBER OF COUNTS DUE TO THE SIGNAL
-  estimate = np.sum(obj.moffat_fit_image - obj.moffat_parms[5]) # magnitude based on value of fitted counts
-  uncertainty = np.sqrt(np.sum(obj.moffat_fit_image)+sigma_read**2)
+  #obj.fit_moffat(sigma_read)
+  estimate, uncertainty, chi_sq, max_chi, fit_parms = obj.fit_shapelets(sigma_read, obj.FM.nmax, obj.FM.mmax, display=display)
+
+  #estimate = np.sum(obj.moffat_fit_image - obj.moffat_parms[5]) # magnitude based on value of fitted counts
+  #uncertainty = np.sqrt(np.sum(obj.moffat_fit_image)+sigma_read**2)
   # percent uncertainty is on the level of light.
   #print '\t',N_bkg, obj.moffat_parms[5]
   #maskval = np.sqrt((3.*np.sqrt(N_bkg))**2 + sigma_read**2)
@@ -1138,33 +1360,35 @@ def estimate_total_light(obj, N_bkg, sigma_read, display=0, out='out'):
   #print '\tmasked image sum counts',np.sum(Hmasked2)
   #print '\tmasked bkg subtractected image sum counts',np.sum(Hmasked)
   #print '\tfrac_uncertainty',frac_uncertainty
-  print '\tmoffat_integrated count',estimate
-  print '\tmoffat estimated uncertainty',uncertainty
-  print '\tmoffat estimated frac uncertainty',uncertainty/estimate
+  print '\tshapelet integrated count',estimate
+  print '\tshapelet uncertainty',uncertainty
+  print '\tfrac uncertainty',uncertainty/estimate
   
   #maskval = np.sqrt((3.*np.sqrt(N_bkg))**2 + sigma_read**2)
   #Hmasked  = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image-N_bkg)
   #Hmasked2 = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image)
   #estimate = np.sum(Hmasked)
   #uncertainty = np.sqrt(np.sum(Hmasked2))
+  res = obj.image-obj.shapelet_fit_image
+  chi = res/(np.sqrt(obj.image + obj.FM.readnoise**2))
+  #max_chi = np.max(np.abs(chi))
+  #chi_sq = np.sum(chi**2)/float(len(chi)-)
   if(display >= 3):
 	plt.figure(figsize=(8,11))
         plt.subplot(321)
-	plt.imshow(obj.image, interpolation='none', vmin=np.min(obj.image), vmax=np.max(obj.image))
+	plt.imshow(obj.image, interpolation='none', vmin=np.min(obj.image), vmax=np.max(obj.image), cmap='viridis')
 	plt.colorbar()
         plt.title('data')
         plt.subplot(322)
-	plt.imshow(obj.moffat_fit_image, interpolation='none', vmin=np.min(obj.image), vmax=np.max(obj.image))
+	plt.imshow(obj.shapelet_fit_image, interpolation='none', vmin=np.min(obj.image), vmax=np.max(obj.image), cmap='viridis')
 	plt.colorbar()
-        plt.title('Moffat Fit')
+        plt.title('Shapelet Fit\n(n_max=%d, m_max=%d)'%(obj.FM.nmax, obj.FM.mmax))
         plt.subplot(323)
-	res = obj.image-obj.moffat_fit_image
-	plt.imshow(res, interpolation='none', vmin=-np.max(np.max(res)),  vmax=np.max(np.max(res)))
+	plt.imshow(res, interpolation='none', vmin=-np.max(np.max(res)),  vmax=np.max(np.max(res)), cmap='seismic')
 	plt.colorbar()
 	plt.title('residuals')
         plt.subplot(324)
-	chi = res/(np.sqrt(obj.image + obj.FM.readnoise**2))
-	plt.imshow(chi, interpolation='none', vmin=-np.max(np.abs(chi)), vmax=np.max(np.abs(chi)))
+	plt.imshow(chi, interpolation='none', vmin=-np.max(np.abs(chi)), vmax=np.max(np.abs(chi)), cmap='seismic')
 	mx = np.max(np.abs(chi))
 	mn = -mx
 	plt.colorbar()
@@ -1202,7 +1426,7 @@ def estimate_total_light(obj, N_bkg, sigma_read, display=0, out='out'):
 	  colorbar()
 	  show()
   '''
-  return estimate, uncertainty
+  return estimate, uncertainty, chi_sq, max_chi
 
 
 def estimate_total_light_elliptical(obj, N_bkg, sigma_read, display=0, out='out'):
@@ -1306,36 +1530,51 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   # MAKE LISTST FOR THE CALIBRATED APASS MAGNITUDES AND THE INSTRUMENT MAGNITUDES
   m_APASS = []
   m_I     = []
+  APASS_index_list = []
   m_APASS_unc = []
   m_I_unc     = []
-  alpha = []
   beta  = []
+  beta_error  = []
   bkg=[]
-  #for k in range(4,6):
+  bkg_error=[]
+  psf_parms = []
+  S_CCD_list = []
+  sig_S_CCD_list = []
+  chi_sq_list = []
+  max_chi_list = []
   for k in range(0,len(APASS_table)):
     if(APASS_table[filt][k]!='NA' and APASS_table[filt_err][k]!='0' and k not in APASS_rejects): 
-	print 'APASS', k
+	print 'APASS index, ra, dec', k,  APASS_table['radeg'][k], APASS_table['decdeg'][k]
 	print 'magnitude %1.2f'%(float(APASS_table[filt][k])) 
 	obj = SourceImage(FM, APASS_table['radeg'][k], APASS_table['decdeg'][k], 31)
 	N_bkg = np.median(obj.image)
 	outTag = out+'_src_%d'%k
 	#plt.show()
+	#'''
 	try:
-		intg, intg_unc = estimate_total_light(obj, N_bkg, sigma_read, display=display, out=outTag)
+		intg, intg_unc, chi_sq, max_chi = estimate_total_light(obj, N_bkg, sigma_read, display=display, out=outTag)
+		#intg, intg_unc = estimate_total_light(obj, N_bkg, sigma_read, display=display, out=outTag)
 		#intg, intg_unc = estimate_total_light_elliptical(obj, N_bkg, sigma_read, display=display, out=outTag)
 
 	except:
 		continue
+	#'''
 	if(obj.fit_ok):
-          print 'fit_ok'
-	  m_I.append(magnitude(intg))
-	  m_I_unc.append(2.5/2.3*( (intg_unc/intg) - 0.5*(intg_unc/intg)**2 + 1./3.*(intg_unc/intg)**3 ) )
+	  print 'fit_ok'
+	  APASS_index_list.append(k)
+	  S_CCD_list.append(intg)
+	  sig_S_CCD_list.append(intg_unc)
+	  m_I.append(flux2magnitude(intg))
+	  m_I_unc.append(fluxErr2magErr(intg, intg_unc))
 	  m_APASS.append(float(APASS_table[filt][k]))
 	  m_APASS_unc.append(float(APASS_table[filt_err][k]))
-	  alpha.append(obj.moffat_parms[1])
-	  beta.append(obj.moffat_parms[2])
-	  bkg.append(obj.moffat_parms[5])
-          #print 'k', obj.moffat_parms[1], obj.moffat_parms[2], obj.moffat_parms[5]
+	  beta.append(obj.shapelet_fit_parameters[2])
+	  beta_error.append(np.sqrt(obj.shapelet_fit_covariance[2][2]))
+	  bkg.append(obj.shapelet_fit_parameters[3])
+	  bkg_error.append(np.sqrt(obj.shapelet_fit_covariance[3][3]))
+	  psf_parms.append(obj.shapelet_fit_parameters[4:])
+	  chi_sq_list.append(chi_sq)
+	  max_chi_list.append(max_chi)
 	  '''
           figure()
           imshow(obj.image, interpolation='none')
@@ -1345,7 +1584,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   # ESTIMATE ZERO POINTS FOR EACH APASS SOURCE
   ZP = np.array(m_APASS)-np.array(m_I)
   # USE ESTIMATED UNCERTINTIES TO WEIGHT THE MEAN AND RMS OF ZERO POINTS
-  weight = 1./np.sqrt(np.array(m_I_unc)**2+np.array(m_APASS_unc)**2)
+  weight = 1./np.sqrt(np.array(m_I_unc)**2 + np.array(m_APASS_unc)**2)
   # ESTIMATE THE MEAN AND WEIGHTED RMS OF THE ZERO POINTS 
   #ZP_mean = sum(ZP)/len(ZP)
   ZP_rms = np.sqrt(sum(ZP**2)/len(ZP) - sum(ZP)/len(ZP)**2)
@@ -1355,68 +1594,50 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   #print ZP_mean, ZP_rms
   # WEIGHTED RMS
   # ESTIMATE THE WEIGHTED MEAN OF SEEING PARAMETERS
-  alpha_mean = sum(weight*alpha)/sum(weight)
   beta_mean  = sum(weight*beta)/sum(weight)
-  
-  alpha_wrms = np.sqrt(sum(weight*(alpha-alpha_mean)**2)/sum(weight))
   beta_wrms  = np.sqrt(sum(weight*(beta-beta_mean)**2)/sum(weight))
-  alpha_beta_corr  = np.sqrt(sum(weight*(alpha-alpha_mean)*(beta-beta_mean))/sum(weight))/np.sqrt(alpha_wrms*beta_wrms)
-  #print 'seeing',alpha_mean, alpha_wrms, beta_mean, beta_wrms, alpha_beta_corr
 
   # USE THE MEDIAN AND MEDIAN ABSOLUTE DEVIATION
   ZP_mean = np.median(ZP)
   ZP_wrms = 1.4826*np.median(np.abs(ZP - ZP_mean))
   ZP_rms =  1.4826*np.median(np.abs(ZP - ZP_mean))
-  alpha_mean = np.median(alpha)
   beta_mean  = np.median(beta)
-  alpha_wrms = 1.4826*np.median(np.abs(alpha - alpha_mean))
-  beta_wrms  = 1.4826*np.median(np.abs(beta -  beta_mean))
-  #return ZP_mean, ZP_wrms, ZP_rms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr
-
+  beta_unc  = 1.4826*np.median(np.abs(beta -  beta_mean))
   if(display>0):
   	# SORT BY INCREASING MAGNITUDE FOR EASE OF VIEWING
   	m_APASS_ord,m_I_ord = zip(*sorted(zip(m_APASS, m_I)))
   	m_APASS_ord,m_APASS_unc_ord = zip(*sorted(zip(m_APASS, m_APASS_unc)))
   	m_APASS_ord,m_I_unc_ord = zip(*sorted(zip(m_APASS, m_I_unc)))
-  	m_APASS_ord,alpha_ord = zip(*sorted(zip(m_APASS, alpha)))
   	m_APASS_ord,beta_ord = zip(*sorted(zip(m_APASS, beta)))
+  	m_APASS_ord,beta_error_ord = zip(*sorted(zip(m_APASS, beta_error)))
   	m_APASS_ord,bkg_ord = zip(*sorted(zip(m_APASS, bkg)))
+  	m_APASS_ord,bkg_error_ord = zip(*sorted(zip(m_APASS, bkg_error)))
 	col='r'
 	plt.figure(figsize=(8,12))
 	if(filt=='Sloan_r'):
-		plt.subplot(511)
+		plt.subplot(411)
 		plt.errorbar(m_APASS_ord,np.array(m_APASS_ord)-np.array(m_I_ord),xerr=m_APASS_unc_ord, yerr=np.sqrt(np.array(m_I_unc_ord)**2+np.array(m_APASS_unc_ord)**2) ,fmt='.-', color=col)
 		plt.title('Red Filter ZP')
  		plt.ylabel('Zero Point')
 		#plt.plot()
 	if(filt=='Sloan_g'):
 		col='g'
-		plt.subplot(511)
+		plt.subplot(411)
 		plt.errorbar(m_APASS_ord,np.array(m_APASS_ord)-np.array(m_I_ord), xerr=m_APASS_unc_ord, yerr=np.sqrt(np.array(m_I_unc_ord)**2+np.array(m_APASS_unc_ord)**2),fmt='.-', color=col)
  		plt.ylabel('Zero Point')
  		plt.title('Green Filter ZP')
 	plt.xlim(np.min(m_APASS_ord)-0.5, np.max(m_APASS_ord)+0.5)
 	plt.grid(True)
-	plt.subplot(512)
-	plt.plot(m_APASS_ord, alpha_ord, '.-', color=col)
-	plt.ylabel('alpha')
-	plt.title('Moffat alpha')
-	plt.grid(True)
-	plt.xlim(np.min(m_APASS_ord)-0.5, np.max(m_APASS_ord)+0.5)
-	plt.subplot(513)
-	plt.plot(m_APASS_ord, beta_ord, '.-', color=col)
+	plt.subplot(412)
+	plt.errorbar(m_APASS_ord, beta_ord, yerr=beta_error_ord, fmt='.-', color=col)
+	#plt.plot(m_APASS_ord, beta_ord, '.-', color=col)
 	plt.ylabel('beta')
 	plt.title('Moffat beta')
 	plt.grid(True)
 	plt.xlim(np.min(m_APASS_ord)-0.5, np.max(m_APASS_ord)+0.5)
-	plt.subplot(514)
-	plt.plot(m_APASS_ord, moffat_fwhm(np.array(alpha_ord), np.array(beta_ord)), '.-', color=col)
-	plt.ylabel('FWHM')
-	plt.title('Moffat FWHM')
-	plt.grid(True)
-	plt.xlim(np.min(m_APASS_ord)-0.5, np.max(m_APASS_ord)+0.5)
-	plt.subplot(515)
-	plt.plot(m_APASS_ord, bkg_ord, '.-', color=col)
+	plt.subplot(413)
+	plt.errorbar(m_APASS_ord, bkg_ord, yerr=bkg_error_ord, fmt='.-', color=col)
+	#plt.plot(m_APASS_ord, bkg_ord, '.-', color=col)
 	plt.title('Fitted Nbkg')
 	plt.ylabel('Counts')
 	plt.grid(True)
@@ -1424,8 +1645,33 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
 	plt.xlabel('APASS Source Magnitude', fontsize=14)
 	plt.xlim(np.min(m_APASS_ord)-0.5, np.max(m_APASS_ord)+0.5)
 	plt.suptitle(FM.fits_file_name.split('/')[-1], fontsize=18)
+	plt.subplot(414)
+	normed_parms = []
+	for k in range(0,len(psf_parms)):
+		normed_parms.append( psf_parms[k]/magnitude2flux(np.array(m_I[k]))*2.*np.sqrt(np.pi)*np.array(beta[k]) )
+	med_parms = np.median(normed_parms, axis=0)
+	plt.semilogy(np.abs(med_parms), 'k.-', alpha=0.3, lw=10 )    
+	for k in range(0,len(psf_parms)):
+		plt.semilogy(np.abs(normed_parms[k]), '.-')
 	plt.savefig(out+'.png', dpi=50)
-  return ZP_mean, ZP_wrms, ZP_rms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr
+
+
+  # HERE WE SHOULD ADD A COMBINED FIT
+  # THE FIRST THING WOULD BE TO MASK PIXELS WITH >4 SIGMA RESIDUALS
+  # INPUT THE FITTED BACKGROUND, POSITIONS, AND S_CCD FOR EACH STAR COMBINED WITH THE MEDIAN VALUE OF BETA AND THE SHAPELET COEFFICIENTS
+  # FOR NOW, WE WILL JUST RETURN THE AVERAGE SHAPELET COEFFICIENTS
+  beta_mean  = np.median(beta)
+  beta_unc  = 1.4826*np.median(np.abs(beta -  beta_mean))
+  return APASS_index_list, beta_mean, beta_unc, med_parms, S_CCD_list, sig_S_CCD_list, chi_sq_list, max_chi_list
+
+def readStarList(fnm):
+	ra = []
+	dec = []
+	for line in file(fnm):
+                if('#' not in line):
+			ra.append(float(line.split()[0]))
+                	dec.append(float(line.split()[1]))
+	return np.array(ra), np.array(dec)
 
 
 def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileTag='out', emcee_level=1):
@@ -2339,5 +2585,84 @@ def magErr2fluxErr(magVal, magErr):
 def fluxErr2magErr(fluxVal, fluxErr):
     return -2.5*np.log10(1-fluxErr/fluxVal)
     
+def starFit(FM, ra_star_list, dec_star_list,  beta, shapelet_coefficients, N_px=31, display=0, outputFileTag='out_star'):
 
+  def shapeletMagnitude((x, y), x0, y0, bkg, sum_CCD):
+    parameters = np.concatenate([[x0,y0, beta, bkg], sum_CCD/(2.*np.sqrt(np.pi)*beta)*shapelet_coefficients])
+    m = psf.shapelet_kernel(parameters, obj.FM.nmax, obj.FM.mmax, nx = len(x), ny = len(y))
+    bkg = parameters[3]
+    m = np.rot90(m)
+    m = np.flipud(m)
+    #m = amplitude*PSF_model + offset
+    if(parameters[2]<0. or parameters[3]<0.): 
+        m+=1.e9
+    return m.ravel() + bkg
+
+  x2d, y2d = np.mgrid[:N_px, :N_px]
+  star_index_list = []
+  chi_sq_list=[]
+  max_chi_list = []
+  x0_list = []
+  y0_list = []
+  bkg_list = []
+  S_CCD_list = []
+  S_CCD_unc_list = []
+  for k in range(0,len(ra_star_list)):
+    print 'starFit'
+    obj = SourceImage(FM, ra_star_list[k], dec_star_list[k], N_px)
+    # guess values of x0, y0, and bkg
+    x_max, y_max = np.unravel_index(obj.image.argmax(), obj.image.shape)
+    x0_guess = float(x_max - (N_px- 1) / 2) 
+    y0_guess = float(y_max - (N_px- 1) / 2)
+    x2d, y2d = np.mgrid[:len(obj.image), :len(obj.image)]
+    print 'x_max, y_max', x_max, y_max
+    print 'x0_guess, y0_guess', x0_guess, y0_guess
+
+    bkg_guess = np.median(obj.image)
+    sum_CCD_guess = (np.max(obj.image)-bkg_guess)/1.266 # /(2.*np.sqrt(np.pi)*beta*1.226)
+    guess_img = shapeletMagnitude( (x2d,y2d), x0_guess, y0_guess, bkg_guess, sum_CCD_guess)
+    gain = obj.FM.hdulist[0].header['GAIN']
+
+    sigmas = np.sqrt( obj.FM.readnoise**2 + obj.image/gain )
+
+    try:
+      popt, pcov = opt.curve_fit(shapeletMagnitude, (x2d,y2d), obj.image.ravel(), sigma = sigmas.ravel(), p0=[x0_guess, y0_guess, bkg_guess, sum_CCD_guess])
+    except:
+      print 'STAR %d FIT FAILED'%k
+      continue
+    
+    print 'popt', popt
+    print 'pcov', pcov
+    fitted_image = shapeletMagnitude( (x2d,y2d), *popt)
+    df = obj.image - fitted_image.reshape(N_px,N_px)
+    chi = df/sigmas
+    print 'chisq/ndof', np.sum(chi**2)/float(chi.size-4)
+    print 'S_CCD', popt[3],np.sqrt(pcov[3][3]), np.sqrt(pcov[3][3])/popt[3] 
+    star_index_list.append(k)
+    chi_sq_list.append(np.sum(chi**2)/float(chi.size-4))
+    max_chi_list.append(np.max(chi))
+    S_CCD_list.append(popt[3])
+    S_CCD_unc_list.append(np.sqrt(pcov[3][3]))
+    if(display>2):
+  	plt.figure()
+  	plt.subplot(231)
+  	plt.imshow(obj.image, interpolation='none', cmap='viridis')
+  	plt.colorbar()
+  	plt.subplot(232)
+  	plt.imshow(guess_img.reshape(N_px,N_px), interpolation='none', cmap='viridis')
+  	plt.colorbar()
+  	plt.subplot(233)
+  	plt.imshow(obj.image-guess_img.reshape(N_px,N_px), interpolation='none', cmap='viridis')
+  	plt.colorbar()
+  	plt.subplot(234)
+  	plt.imshow(fitted_image.reshape(N_px,N_px), interpolation='none', cmap='viridis')
+  	plt.colorbar()
+  	plt.subplot(235)
+  	plt.imshow(df, interpolation='none', cmap='viridis')
+  	plt.colorbar()
+  	plt.subplot(236)
+  	plt.imshow(chi, interpolation='none', vmin = -np.max(np.abs(chi)), vmax = np.max(np.abs(chi)), cmap='seismic')
+  	plt.colorbar()
+  	plt.savefig(outputFileTag+'_star_%d.png'%k, dpi=75)
+  return star_index_list, chi_sq_list, max_chi_list, S_CCD_list, S_CCD_unc_list 
 
