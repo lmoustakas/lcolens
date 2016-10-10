@@ -689,7 +689,7 @@ class SourceImage:
 
     self.fit_ok = True
     #popt, pcov = opt.curve_fit(self.polarShapelet, (self.xg, self.yg), self.image.ravel(), p0=self.initial_guess_shapelets)
-    popt, pcov = opt.curve_fit(self.polarShapelet, (self.xg, self.yg), self.image.ravel(), sigma = sigmas.ravel(), p0=self.initial_guess_shapelets)
+    popt, pcov = opt.curve_fit(self.polarShapelet, (self.xg, self.yg), self.image.ravel(), sigma = sigmas.ravel(), absolute_sigma=True, p0=self.initial_guess_shapelets)
     #popt, pcov = opt.curve_fit(self.polarShapelet, (self.xg, self.yg), self.image.ravel(), sigma = sigmas.ravel(), p0=popt)
     if(np.isnan(pcov).any() or np.isinf(pcov).any()):
         self.fit_ok = False
@@ -1041,23 +1041,47 @@ class SourceImage:
     #	y_vals = 15.-1.*(y_vals-15.)
     return x_vals, y_vals
 
-  def quad_image_model(self, x0, y0, x_image, y_image, amp0, amp1, amp2, amp3, alpha, beta, N_bkg, N_pix, flip, x_lens=0., y_lens=0., amp_lens=0., r0_lens=1., q_lens=1., posang_lens=0.):
+  def quad_image_model(self, (xg,yg, beta, shapelet_coeffs, N_pix, flip), x0, y0, _x1, _x2, _x3, _x4, _y1, _y2, _y3, _y4, amp0, amp1, amp2, amp3, N_bkg, x_lens=0., y_lens=0., amp_lens=0., r0_lens=1., q_lens=1., posang_lens=0.):
     #t0 = time.clock()
-    x1 = y_image[0]+x0
-    x2 = y_image[1]+x0
-    x3 = y_image[2]+x0
-    x4 = y_image[3]+x0
-    y1 = x_image[0]+y0
-    y2 = x_image[1]+y0
-    y3 = x_image[2]+y0
-    y4 = x_image[3]+y0
+    # image x's and y's are flipped. unflip them and add the centroid offset
+    x1 = _y1 + x0
+    x2 = _y2 + x0
+    x3 = _y3 + x0
+    x4 = _y4 + x0
+    y1 = _x1 + y0
+    y2 = _x2 + y0
+    y3 = _x3 + y0
+    y4 = _x4 + y0
 
-    xg, yg = np.mgrid[:N_pix,:N_pix]
-    #print x0,y0, amp0
-    p0  =  twoD_Moffat((xg, yg), amp0, alpha, beta, x1, y1, 0)
-    p1  =  twoD_Moffat((xg, yg), amp1, alpha, beta, x2, y2, 0)
-    p2  =  twoD_Moffat((xg, yg), amp2, alpha, beta, x3, y3, 0)
-    p3  =  twoD_Moffat((xg, yg), amp3, alpha, beta, x4, y4, 0)
+    #print 'x0,y0', x0,y0
+    #print 'x1,y1', x1,y1
+    #print 'x2,y2', x2,y2
+    #print 'x3,y3', x3,y3
+    #print 'x4,y4', x4,y4
+   
+    # NOTE: THIS FUNCTION IS DEFINED TWICE. INTERNALLY IN EACH CASE BUT WE SHOULD IMPROVE THIS BY FINDING A WAY TO DEFINE IT ONCE
+    def shapeletMagnitude((x, y), x0, y0, bkg, sum_CCD):
+      #print 'sum_CCD', sum_CCD
+      parameters = np.concatenate([[x0,y0, beta, bkg], sum_CCD/(2.*np.sqrt(np.pi)*beta)*shapelet_coeffs])
+      m = psf.shapelet_kernel(parameters, self.FM.nmax, self.FM.mmax, nx = len(x), ny = len(y))
+      bkg = parameters[3]
+      m = np.rot90(m)
+      m = np.flipud(m)
+      #m = amplitude*PSF_model + offset
+      if(parameters[2]<0. or parameters[3]<0.): 
+          m+=1.e9
+      return m.ravel() + bkg
+
+    #p0  =  twoD_Moffat((xg, yg), amp0, alpha, beta, x1, y1, 0)
+    #p1  =  twoD_Moffat((xg, yg), amp1, alpha, beta, x2, y2, 0)
+    #p2  =  twoD_Moffat((xg, yg), amp2, alpha, beta, x3, y3, 0)
+    #p3  =  twoD_Moffat((xg, yg), amp3, alpha, beta, x4, y4, 0)
+
+    p0  =  shapeletMagnitude((xg, yg), x1, y1, 0., amp0)
+    p1  =  shapeletMagnitude((xg, yg), x2, y2, 0., amp1)
+    p2  =  shapeletMagnitude((xg, yg), x3, y3, 0., amp2)
+    p3  =  shapeletMagnitude((xg, yg), x4, y4, 0., amp3)
+    #print 'max p0', np.max(p0)
     '''
     plt.figure()
     plt.subplot(221)
@@ -1082,7 +1106,7 @@ class SourceImage:
         g   = deVaucouleurs_model(xlens, ylens, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
         return g+(p0+p1+p2+p3).reshape(N_pix, N_pix) + N_bkg
     # otherwise return quasar images only
-    return (p0+p1+p2+p3).reshape(N_pix, N_pix) + N_bkg
+    return (p0+p1+p2+p3) + N_bkg
 
   def moffat_chi_vals(self,theta,N_pix, flip, x_images, y_images):
     x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg = theta
@@ -1674,12 +1698,12 @@ def readStarList(fnm):
 	return np.array(ra), np.array(dec)
 
 
-def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_mean, ZP_rms, alpha, beta, N_px, outputFileTag='out', emcee_level=1):
+def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, beta, shapelet_coeffs, N_px, galFit=False, outputFileTag='out', display=0, emcee_level=1):
   # GET THE QUASAR IMAGE
   obj = SourceImage(FM, ra_qsr, dec_qsr, N_px)
 
   N_bkg = np.median(obj.image)
-  intg, intg_unc = estimate_total_light(obj,N_bkg, FM.readnoise, display=False)
+  #intg, intg_unc = estimate_total_light(obj,N_bkg, FM.readnoise, display=False)
 
   # DETERMINE THE LEFT RIGHT ORIENTATION OF THE IMAGE BASED ON ITS RIGHT ASCENCION DIFFERENCE WITH PIXEL VALUES
   xv,yv = FM.bigw.wcs_world2pix(ra_qsr,dec_qsr,1)
@@ -1689,9 +1713,9 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   if(r1-r0<0): fl =False
 
   # SET AN INITIAL AMPLITUDE SCALE, THESE VALUES ARE APPROXIMATED FROM Kochenek, 2006
-  amp_scale = np.max(obj.image)
+  amp_scale = 1. # does not matter for correlation
   x0,y0 = 0., 0.
-  amp0 = amp_scale
+  amp0 = amp_scale    
   amp1 = amp_scale/1.2
   amp2 = amp_scale/1.5
   amp3 = amp_scale/2.
@@ -1704,23 +1728,29 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   print dec_images, dec_lens
   print ra_images, ra_lens
   x_images,y_images = FM.bigw.wcs_world2pix(ra_images,dec_images,1)
-  x_images -= xv - (N_px-1)/2
-  y_images -= yv - (N_px-1)/2
+  x_images -= xv #- (N_px-1)/2
+  y_images -= yv #- (N_px-1)/2
   x_lens,y_lens = FM.bigw.wcs_world2pix(ra_lens,dec_lens,1)
-  x_lens -= xv - (N_px-1)/2
-  y_lens -= yv - (N_px-1)/2
+  x_lens -= xv #- (N_px-1)/2
+  y_lens -= yv #- (N_px-1)/2
   r0_lens = 1.5/float(FM.hdulist[0].header['PIXSCALE'])
   el_lens = 0.09
   q_lens = 1./np.sqrt(1.-el_lens**2)
   posang_lens = 174.8
   print xv, x_images, x_lens
   print yv, y_images, y_lens
+
+  # create x,y grid
+  xg, yg = np.mgrid[:N_px,:N_px] 
   # DEFINE ARRAY OF INPUT PARAMETERS
   # PRODUCE A MODELED IMAGE
   #qim = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, len(obj.image), fl, x_lens, y_lens, amp_lens, r0_lens, q_lens, posang_lens)
 
   # FOR THE CORRELATION AND FIRST IMAGE ALIGNMENT, WE WON'T INCLUDE THE LENSING GALAXY
-  qim = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, len(obj.image), fl)
+  # set the background to 0 for cross-correlation
+  qim = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl),x0,y0,x_images[0],x_images[1],x_images[2],x_images[3],
+                             y_images[0],y_images[1],y_images[2],y_images[3], 
+                             amp0,amp1,amp2,amp3, 0.).reshape(N_px, N_px)
   '''
   plt.figure()
   plt.subplot(211)
@@ -1730,7 +1760,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   plt.imshow(obj.image, interpolation='none', cmap='YlGnBu_r')
   plt.colorbar()
   plt.savefig('qim_test.png')
-  exit()
+  #exit()
   '''
   # CROSS CORRELATE THE DATA TO THE MODEL TO FIND OUT WHERE IT IS ON THE PIXEL GRID
   corr = signal.correlate2d(obj.image, qim, boundary='symm', mode='same')
@@ -1740,95 +1770,126 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, ZP_me
   dx = corr_x_max-15
   dy = corr_y_max-15
   # SOME FUNINESS HERE. I DETERMINED IT FROM SCANNING THROUGH SEVERAL IMAGES
-  if(corr_x_max<15 and corr_y_max>=15):
-    dy *= -1
+  print 'corr_x_max, corr_y_max', corr_x_max, corr_y_max
+  print 'dx, dy', dx,dy
+  #if(corr_x_max>=15): dx = corr_x_max - 31
+  #if(corr_y_max>=15): dy = corr_y_max - 31
   # DEFINE NEW PARAMETERS FOR THE MODELED IMAGE
   x0 += dx
   y0 += dy
-  amp0*=np.max(obj.image)/np.max(qim)
-  amp1*=np.max(obj.image)/np.max(qim)
-  amp2*=np.max(obj.image)/np.max(qim)
-  amp3*=np.max(obj.image)/np.max(qim)
-  amp_lens*=np.max(obj.image)/np.max(qim)
+  amp_fac = np.max(obj.image - N_bkg)/np.max(qim)
+  amp0 *= amp_fac
+  amp1 *= amp_fac
+  amp2 *= amp_fac
+  amp3 *= amp_fac
+  amp_lens *= amp_fac
+  print 'amp correction factor', 
   # PRODUCE THE MODEL IMAGE WITHOUT LENSING GALAXY
-  qim2 = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl)
-
+  qim2 = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), x0,y0,x_images[0],x_images[1],x_images[2],x_images[3],
+                             y_images[0],y_images[1],y_images[2],y_images[3], 
+                             amp0,amp1,amp2,amp3, N_bkg ).reshape(N_px, N_px)
+  '''
+  print 'dx, dy', dx,dy
+  plt.figure()
+  plt.subplot(221)
+  plt.imshow(qim2, interpolation='none', cmap='viridis')
+  plt.title('model')
+  plt.colorbar()
+  plt.subplot(222)
+  plt.imshow(obj.image, interpolation='none', cmap='viridis')
+  plt.title('data')
+  plt.colorbar()
+  plt.subplot(223)
+  plt.imshow(corr, interpolation='none', cmap='viridis')
+  plt.title('correlation')
+  plt.colorbar()
+  plt.subplot(224)
+  plt.imshow(qim2, interpolation='none', cmap='viridis')
+  plt.title('model')
+  plt.colorbar()
+  plt.savefig('qim2_test.png')
+  exit()
+  '''
  
   #### FIT ONCE WITHOUT THE LENSING GALAXY ############################################################
 
-  # PRODUCE THE PARAMETERS FOR THE MODEL IMAGE
-  theta2 = [x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg]
-  #theta2 = [x0,y0,amp0,amp1,amp2,amp3, N_bkg]
+  # curve_fit qim
+  gain = obj.FM.hdulist[0].header['GAIN']
+  sigmas = np.sqrt( obj.FM.readnoise**2 + obj.image/gain )
+  p0 = [x0,y0,x_images[0],x_images[1],x_images[2],x_images[3], y_images[0], y_images[1], y_images[2], y_images[3], amp0, amp1, amp2, amp3, N_bkg]
+  popt_ng, pcov_ng = opt.curve_fit(obj.quad_image_model, (xg, yg, beta, shapelet_coeffs, len(obj.image), fl), obj.image.ravel(), sigma = sigmas.ravel(), absolute_sigma=True, p0=p0)
+
+  print popt_ng
+  qim3 = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), *popt_ng).reshape(N_px, N_px)
 
   # ESTIMATE ITS DISTRIBUTION OF CHI VALUES
-  chi2 = obj.moffat_chi_vals(theta2, 31, fl, x_images, y_images)
-
-  # FIT A MODEL TO THE DATA
-  print 'MINIMIZATION ROUND',1
-  results = opt.minimize(obj.moffat_chi_sq, theta2,  args=(31, fl, x_images, y_images), method='Nelder-Mead')
-  #results = opt.minimize(obj.moffat_chi_sq2, theta2,  args=(alpha, beta, 31, fl), method='Nelder-Mead')
-
-  # I FIND IT PAYS TO KEEP THE MINIMIZATION GOING FOR A FEW MORE ROUNDS
-  print 'results',results.x
-  for k in range(0,4):
-    print 'MINIMIZATION ROUND',k+2
-    results = opt.minimize(obj.moffat_chi_sq, results.x,  args=(31, fl, x_images, y_images), method='Nelder-Mead')
-    #print '\tresults',results.x
-    print '\t\tx0\t',results.x[0]
-    print '\t\ty0\t',results.x[1]
-    print '\t\tamp0\t',results.x[2]
-    print '\t\tamp1\t',results.x[3]
-    print '\t\tamp2\t',results.x[4]
-    print '\t\tamp3\t',results.x[5]
-    print '\t\talpha\t',results.x[6]
-    print '\t\tbeta\t',results.x[7]
-    print '\t\tN_bkg\t',results.x[8]
-  # GET THE FITTED IMAGE MODEL
-  x0,y0,amp0,amp1,amp2,amp3, alpha, beta, N_bkg = results.x
-
-
-  # STORE FITTED PARAMETERS IN THE CLASS
-  FM.qsr_min_parms = results.x
-
-  #x0,y0,amp0,amp1,amp2,amp3, N_bkg = results.x
-  qim3 = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl)
-  '''
-  plt.figure(figsize=(18,6))
-  plt.subplot(131)
-  plt.imshow(qim3, interpolation='none', cmap='YlGnBu_r')
-  plt.colorbar()
-  plt.subplot(132)
-  plt.imshow(obj.image, interpolation='none', cmap='YlGnBu_r')
-  plt.colorbar()
-  plt.subplot(133)
   res = obj.image-qim3
-  plt.imshow(res, interpolation='none',  cmap='seismic')
-  plt.colorbar()
-  plt.contour(obj.image, colors='k')
-  plt.contour(qim3, colors='g')
-  plt.savefig('qim_test.png')
-  exit()
-  '''
+  chi  = res/sigmas
+  chi_x_max, chi_y_max = np.unravel_index(np.abs(chi).argmax(), chi.shape)
+  chi2 = np.sum(chi**2)/(float(obj.image.size - len(popt_ng)))
+  print 'quadFit chi2, max_chi', chi2, np.max(np.abs(chi)), chi_x_max, chi_y_max
 
-  # ESTIMATE ITS CHI VALUES, ITS PEAK CHI VALUE AND LOCATION ON THE MAP
-  chi_vals = obj.moffat_chi_vals(results.x, 31, fl, x_images, y_images)
-  #chi_vals = obj.moffat_chi_vals2(results.x, alpha, beta,31, fl)
+  #'''
+  print 'dx, dy', dx,dy
+  mn = np.min(obj.image)
+  mx = np.max(obj.image)
+  if(display>2):
+    plt.figure()
+    plt.subplot(221)
+    plt.imshow(qim3, interpolation='none', vmin = mn, vmax = mx, cmap='viridis')
+    plt.title('fit')
+    plt.colorbar()
+    plt.subplot(222)
+    plt.imshow(obj.image, interpolation='none', vmin = mn, vmax = mx, cmap='viridis')
+    plt.title('data')
+    plt.colorbar()
+    plt.subplot(223)
+    plt.imshow(res, interpolation='none', vmin=-np.max(np.abs(res)), vmax=np.max(np.abs(res)), cmap='seismic')
+    plt.title('residuals')
+    plt.colorbar()
+    plt.subplot(224)
+    plt.imshow(chi, interpolation='none', vmin=-np.max(np.abs(chi)), vmax=np.max(np.abs(chi)), cmap='seismic')
+    plt.plot([chi_y_max],[chi_x_max], 'o', ms=8, mfc='none', mec='g', mew=2 )
+    plt.xlim(0-0.5,N_px-0.5)
+    plt.ylim(0-0.5,N_px-0.5)
+    plt.title('chi')
+    plt.colorbar()
+    #plt.suptitle()
+    plt.savefig('%s_quadFit_NG.png'%outputFileTag)
+  #'''
+  if(galFit==False):
+    '''
+    amp0_fit  = popt_ng[10]
+    amp1_fit  = popt_ng[11]
+    amp2_fit  = popt_ng[12]
+    amp3_fit  = popt_ng[13]
+    N_bkg_fit = popt_ng[14]
+    amp0_err  = np.sqrt(pcov_ng[10][10])
+    amp1_err  = np.sqrt(pcov_ng[11][11])
+    amp2_err  = np.sqrt(pcov_ng[12][12])
+    amp3_err  = np.sqrt(pcov_ng[13][13])
+    N_bkg_err = np.sqrt(pcov_ng[14][14])
+    '''
+    #print pcov_ng[10:][10:]
+    return popt_ng, pcov_ng, chi2, np.max(np.abs(chi))
 
-  chi_x_max, chi_y_max = np.unravel_index(np.abs(chi_vals).argmax(), chi_vals.shape)
-  #print 'alpha, beta, N_bkg', alpha, beta, N_bkg
-  #print 'max chi x,y, val', chi_x_max, chi_y_max, np.max(np.abs(chi_vals))
-  #print results.x
+
 
   ##################################################################################################
 
   # ESTIMATE THE LENS AMPLITUDE USING THE MAXIMUM OF THE RESIDUALS. THIS SHOULD AT LEAST GET IT IN THE RIGHT SCALE!
-  res = obj.image-qim3
   print 'NO LENS FIT MAXIMUM RESIDUAL', np.max(res)
   # INITIAL LENS GALAXY FLUX ESTIMATE. THE CONSTANT TRANSLATES THE FLUX TO THE EPECTED PEAK VALUE
   amp_lens = 126669.015793*np.max(res)*r0_lens**2
   print 'INITIAL LENS AMPLITUDE', np.max(res)
-  m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=0.0, npx=31)
+  print 'x0,y0', x0,y0
+  m = deVaucouleurs_model(x0+(N_px-1)/2, y0+(N_px-1)/2, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=0.0, npx=31)
   print np.max(m)
+  plt.figure()
+  plt.subplot(221)
+  plt.imshow(m, interpolation='none', vmin = mn, vmax = mx, cmap='viridis')
+  plt.savefig('lens_gal.png')
+  exit()
   amp_lens *= np.max(res)/np.max(m)
   m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=0.0, npx=31)
   print np.max(m)
@@ -2626,7 +2687,7 @@ def starFit(FM, ra_star_list, dec_star_list,  beta, shapelet_coefficients, N_px=
     sigmas = np.sqrt( obj.FM.readnoise**2 + obj.image/gain )
 
     try:
-      popt, pcov = opt.curve_fit(shapeletMagnitude, (x2d,y2d), obj.image.ravel(), sigma = sigmas.ravel(), p0=[x0_guess, y0_guess, bkg_guess, sum_CCD_guess])
+      popt, pcov = opt.curve_fit(shapeletMagnitude, (x2d,y2d), obj.image.ravel(), sigma = sigmas.ravel(), absolute_sigma=True, p0=[x0_guess, y0_guess, bkg_guess, sum_CCD_guess])
     except:
       print 'STAR %d FIT FAILED'%k
       continue
@@ -2644,25 +2705,31 @@ def starFit(FM, ra_star_list, dec_star_list,  beta, shapelet_coefficients, N_px=
     S_CCD_list.append(popt[3])
     S_CCD_unc_list.append(np.sqrt(pcov[3][3]))
     if(display>2):
-  	plt.figure()
-  	plt.subplot(231)
-  	plt.imshow(obj.image, interpolation='none', cmap='viridis')
-  	plt.colorbar()
-  	plt.subplot(232)
-  	plt.imshow(guess_img.reshape(N_px,N_px), interpolation='none', cmap='viridis')
-  	plt.colorbar()
-  	plt.subplot(233)
-  	plt.imshow(obj.image-guess_img.reshape(N_px,N_px), interpolation='none', cmap='viridis')
-  	plt.colorbar()
-  	plt.subplot(234)
-  	plt.imshow(fitted_image.reshape(N_px,N_px), interpolation='none', cmap='viridis')
-  	plt.colorbar()
-  	plt.subplot(235)
-  	plt.imshow(df, interpolation='none', cmap='viridis')
-  	plt.colorbar()
-  	plt.subplot(236)
-  	plt.imshow(chi, interpolation='none', vmin = -np.max(np.abs(chi)), vmax = np.max(np.abs(chi)), cmap='seismic')
-  	plt.colorbar()
-  	plt.savefig(outputFileTag+'_star_%d.png'%k, dpi=75)
+  	  plt.figure()
+  	  mx = np.max([np.max(obj.image), np.max(fitted_image)])
+  	  mn = np.min([np.min(obj.image), np.min(fitted_image)])
+  	  plt.subplot(222)
+  	  plt.imshow(obj.image, interpolation='none', vmin=mn, vmax=mx, cmap='viridis')
+  	  plt.colorbar()
+  	  plt.title('data')
+  	  #plt.subplot(232)
+  	  #plt.imshow(guess_img.reshape(N_px,N_px), interpolation='none', cmap='viridis')
+  	  #plt.colorbar()
+  	  #plt.subplot(233)
+  	  #plt.imshow(obj.image-guess_img.reshape(N_px,N_px), interpolation='none', cmap='viridis')
+  	  #plt.colorbar()
+  	  plt.subplot(221)
+  	  plt.imshow(fitted_image.reshape(N_px,N_px), interpolation='none', vmin=mn, vmax=mx, cmap='viridis')
+  	  plt.title('fit')
+  	  plt.colorbar()
+  	  plt.subplot(223)
+  	  plt.imshow(df, interpolation='none', vmin=-np.max(np.abs(df)), vmax=np.max(np.abs(df)), cmap='seismic')
+  	  plt.colorbar()
+  	  plt.title('residual')
+  	  plt.subplot(224)
+  	  plt.imshow(chi, interpolation='none', vmin = -np.max(np.abs(chi)), vmax = np.max(np.abs(chi)), cmap='seismic')
+  	  plt.colorbar()
+  	  plt.title('chi')
+  	  plt.savefig(outputFileTag+'_star_%d.png'%k)
   return star_index_list, chi_sq_list, max_chi_list, S_CCD_list, S_CCD_unc_list 
 

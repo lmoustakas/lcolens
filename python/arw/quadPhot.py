@@ -58,38 +58,6 @@ if __name__ == "__main__":
     APASS_index_list, beta_mean, beta_unc, shapelet_coeffs, APASS_S_CCD_list, APASS_sig_S_CCD_list, APASS_chi_sq, APASS_max_chi = APASS_zero_points(FM, APASS_table, APASS_rejects, FM.readnoise, display=args.plots, out = args.outputFileTag+'_APASS')
     print '\tSeeing, beta, err_beta', beta_mean,  beta_unc
 
-    star_ra, star_dec = readStarList(args.star_list)
-    star_index_list, star_chi_sq, star_max_chi, star_S_CCD, star_S_CCD_unc = starFit(FM, star_ra, star_dec, beta_mean, shapelet_coeffs, N_px=npxls, display = args.plots, outputFileTag=args.outputFileTag)
-
-    filter = FM.hdulist[0].header['FILTER']
-    mjd_obs = float(FM.hdulist[0].header['MJD-OBS'])
-    npz_out = args.outputFileTag + '_results.npz'
-    np.savez(npz_out,
-	inputFile = inputFile,
-	outFileTag = args.outputFileTag,
-	mjd_obs = mjd_obs,
-	readnoise = FM.readnoise,
-	beta_mean = beta_mean,
-	beta_unc = beta_unc,
-	shapelet_coeffs = shapelet_coeffs,
-	nmax = args.nmax,
-	mmax = args.mmax,
-	filter = filter,
-	APASS_index_list = APASS_index_list,
-	APASS_S_CCD = APASS_S_CCD_list,
-	APASS_sig_S_CCD = APASS_sig_S_CCD_list,
-	APASS_chi_sq = APASS_chi_sq, 
-	APASS_max_chi = APASS_max_chi,
-        star_index_list = star_index_list,
-	star_S_CCD = star_S_CCD,
-	star_S_CCD_unc = star_S_CCD_unc,
-	star_chi_sq = star_chi_sq,
-	star_max_chi = star_max_chi
-    )
-
-    ########
-    exit()
-    ########
 
     # FROM CASTLES
     ra_images=np.array([0.,-1.476,-2.467,-0.939])
@@ -121,46 +89,48 @@ if __name__ == "__main__":
     print 'PIXSCALE', FM.hdulist[0].header['PIXSCALE']
     print 'ra images in arcsec', ra_images
     print 'dec images in arcsec', dec_images
-    m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, ZP_mean, ZP_wrms, alpha_mean, beta_mean, npxls, outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
+    #m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, ZP_mean, ZP_wrms, alpha_mean, beta_mean, npxls, outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
+    #m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = 
 
-    npz_out = args.outputFileTag + '_results.npz'
-    readnoise = FM.readnoise
-    APASS_alpha = alpha_mean
-    APASS_beta  = beta_mean
-    APASS_alpha_err = alpha_wrms
-    APASS_beta_err  = beta_wrms
-    APASS_alpha_beta_corr  = alpha_beta_corr
+    popt_ng, pcov_ng, chisq_ng, max_chi_ng = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, beta_mean, shapelet_coeffs, npxls, galFit=False, display=args.plots,  outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
 
-    outFileTag = args.outputFileTag
-    mjd_obs = float(FM.hdulist[0].header['MJD-OBS'])
-    # INCLUDE ALL APASS FIT RESULTS, alpha, beta, chiSq, maxChi
-    # SAVE RESULTS TO AN NPZ FILE
+    #'''
+    star_ra, star_dec = readStarList(args.star_list)
+    star_index_list, star_chi_sq, star_max_chi, star_S_CCD, star_S_CCD_unc = starFit(FM, star_ra, star_dec, beta_mean, shapelet_coeffs, N_px=npxls, display = args.plots, outputFileTag=args.outputFileTag)
+
     filter = FM.hdulist[0].header['FILTER']
-    np.savez(npz_out, 
-    inputFile = inputFile,
-    outFileTag = outFileTag, 
-    mjd_obs = mjd_obs,
-    readnoise = readnoise, 
-    ZP_mean = ZP_mean, 
-    ZP_wrms = ZP_wrms, 
-    ZP_rms = ZP_rms, 
-    APASS_alpha = APASS_alpha,
-    APASS_beta = APASS_beta,
-    APASS_alpha_err = APASS_alpha_err,
-    APASS_beta_err = APASS_beta_err,
-    APASS_alpha_beta_corr = APASS_alpha_beta_corr,
-    filter = filter,
-    m1 = m1,
-    me1 = me1,
-    m2 = m2,
-    me2 = me2,
-    m3 = m3,
-    me3 = me3,
-    m4 = m4,
-    me4 = me4,
-    chiSq = chiSq,
-    maxChi = maxChi
+    mjd_obs = float(FM.hdulist[0].header['MJD-OBS'])
+    npz_out = args.outputFileTag + '_results.npz'
+    np.savez(npz_out,
+	inputFile = inputFile,
+	outFileTag = args.outputFileTag,
+	mjd_obs = mjd_obs,
+	readnoise = FM.readnoise,
+	beta_mean = beta_mean,
+	beta_unc = beta_unc,
+	shapelet_coeffs = shapelet_coeffs,
+	nmax = args.nmax,
+	mmax = args.mmax,
+	filter = filter,
+	APASS_index_list = APASS_index_list,
+	APASS_S_CCD = APASS_S_CCD_list,
+	APASS_sig_S_CCD = APASS_sig_S_CCD_list,
+	APASS_chi_sq = APASS_chi_sq, 
+	APASS_max_chi = APASS_max_chi,
+        star_index_list = star_index_list,
+	star_S_CCD = star_S_CCD,
+	star_S_CCD_unc = star_S_CCD_unc,
+	star_chi_sq = star_chi_sq,
+	star_max_chi = star_max_chi,
+    qsr_ng_parms = popt_ng, 
+    qsr_ng_covar = pcov_ng,
+    qsr_chisq = chisq_ng, 
+    qsr_max_chi = max_chi_ng
     )
+    #'''
+    ######
+    exit()
+    ######
 
     if(args.emcee_level==1):
 	    emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_wrms, alpha_mean, beta_mean, alpha_wrms, beta_wrms, alpha_beta_corr, m1, m2, m3, m4, npxls, ra_images, dec_images,  outputFileTag=args.outputFileTag)
