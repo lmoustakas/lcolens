@@ -32,7 +32,8 @@ def time_order_fits_files(data_dir):
 	print 'Number of files in directory:', len(fnms)
 	fnms_filtered = []
 	for f in fnms:
-	  if(len(f.split('-'))>3):
+	  #print f[-5:], f
+	  if(len(f.split('-'))>3 and f[-5:]=='.fits'):
 	     fnms_filtered.append(f)
 	fnms = fnms_filtered
 	print 'Number of files after filtering for valid data file names:', len(fnms)
@@ -67,6 +68,20 @@ class FITSmanager:
   def __init__(self,fits_file_name, nmax, mmax):
     self.fits_file_name = fits_file_name
     self.hdulist = fits.open(fits_file_name)
+
+    #print "self.hdulist.info()"
+    #print self.hdulist.info()
+    '''
+    print "self.hdulist[0].header"
+    print self.hdulist[0].header
+    print "self.hdulist[1].header"
+    print self.hdulist[1].header
+    print "self.hdulist[2].header"
+    print self.hdulist[2].header
+    print "self.hdulist[3].header"
+    print self.hdulist[3].header
+    '''
+    #exit() 
     #self.hdulist.info()
     # this slows down the code significantly!!!!
     # make sure masking is an option whose default is false.
@@ -78,13 +93,16 @@ class FITSmanager:
     # MULTIPLY BY THE GAIN
     # this has been commented out. We model the noise variance for CCD values throughout. 
     # self.image_data *= float(self.hdulist[0].header['GAIN'])
-    print 'GAIN', self.hdulist[0].header['GAIN']
     self.bigw=wcs.WCS(self.hdulist[0].header)
     # Shapelet modes to be included in PSF
     self.nmax = nmax
     self.mmax = mmax
+    print '\nFITSmanager'
+    print '\tGAIN'.ljust(9), '=', self.hdulist[0].header['GAIN']
+    print '\tPIXSCALE'.ljust(9), '=', self.hdulist[0].header['PIXSCALE']
 
   def estimate_read_noise(self, display=0, out = 'out'):
+	print '\nestimate_read_noise'
 	readnoise=[]
 	gain = self.hdulist[0].header['GAIN']
 	for k in range(1000):
@@ -124,7 +142,8 @@ class FITSmanager:
 	 		#print 'median', np.median(img)
 			#print popt
 	self.readnoise = np.median(readnoise)
-	print np.median(readnoise)
+	print '\tmedian read noise = %1.2f'%self.readnoise
+	#print np.median(readnoise)
 	if(display>=2):
 		plt.figure(figsize=(7,7))
 		plt.subplot(221)
@@ -140,7 +159,6 @@ class FITSmanager:
 		plt.xlabel('CCD Counts')
 		plt.xticks(rotation=45)
 		plt.subplot(212)
-		print 'median read noise', np.median(readnoise)
 		a,b,c = plt.hist(readnoise, bins=int(np.max(readnoise))+5, range=(0,np.max(readnoise)+5))
 		plt.plot([np.median(readnoise), np.median(readnoise)],[0., 1.2*max(a)],'r-', lw=2, label='median')
 		plt.legend(loc=1)
@@ -150,7 +168,7 @@ class FITSmanager:
 		plt.suptitle(self.fits_file_name.split('/')[-1], fontsize=20)
 		plt.subplots_adjust(top=0.85, bottom=0.1, wspace=0.3, hspace=0.45, left=0.1, right=0.95)
 		plt.savefig(out+'.png', dpi=50)
-		plt.savefig(out+'.pdf')
+		#plt.savefig(out+'.pdf')
 	#return self.readnoise
 	
 
@@ -499,21 +517,21 @@ def twoD_Moffat((x, y), amplitude, alpha, beta, xo, yo, offset, pixel_integratio
         if(beta<0.): m+=1.e9
         return m.ravel()
  
-def deVaucouleurs((x,y), x0, y0, F, r0, q = 1.0, posang=0.0):
+def deVaucouleurs((x,y), _x0, _y0, F, r0, q = 1.0, posang=0.0):
     spa = np.sin(posang / 180.0 * np.pi)
     cpa = np.cos(posang / 180.0 * np.pi)
 
     # Define xprime coordinates in the rotated frame for convenience
     # This uses a standard rotation matrix
-    xp = (x - x0) * cpa - (y - y0) * spa
-    yp = (x - x0) * spa + (y - y0) * cpa
+    xp = (x - _x0) * cpa - (y - _y0) * spa
+    yp = (x - _x0) * spa + (y - _y0) * cpa
     # Defined r^2 (no need to take a square root)
     r = np.sqrt(xp * xp / q / q + yp * yp)
     # the number in the denominator is 7! * 8 pi = 126669.015793
-    return F/126669.015793/r0**2*np.exp(-(r/r0)**(0.25))
+    return F*np.exp(-7.669*( (r/r0)**0.25 - 1. ))
 
 
-def deVaucouleurs_model(x0, y0, F, r0, moffat_alpha, moffat_beta, q = 1.0, posang=0.0, npx=31, subsamp = 3, boundary_padding = 2):
+def deVaucouleurs_model(_x0, _y0, F, r0, beta, shapelet_coeffs, nmax, mmax, q = 1.0, posang=0.0, npx=31, subsamp = 3, boundary_padding = 2):
     # This function produces a subpixelized and padded deVaucouleurs profile, convolves it with a Moffat PSF and performs the sub-pixel integration. 
     # The boundary is padded to reduce the boundary effects of the image convolution but the output has the correct image dimensions.
     # The steps are outlined below.
@@ -524,23 +542,33 @@ def deVaucouleurs_model(x0, y0, F, r0, moffat_alpha, moffat_beta, q = 1.0, posan
     #   5. Return output
 
     # 1. Sub-pixelized and padded model of deVaucouleurs profile and moffat.
-    npx_p_sp = (npx)*subsamp*boundary_padding
-    x=np.arange(0.,npx_p_sp)
-    y=np.arange(0.,npx_p_sp)
-    xg, yg = np.mgrid[:len(x), :len(x)]
-    img = deVaucouleurs((xg,yg), (len(x)-1)/2,(len(y)-1)/2,F,r0, q=q, posang=posang)
-    # the Moffat PSF has alpha increased by the subpixel padding
-    PSF_model = psf.moffat(xg, yg, (len(x)-1)/2+0.5,  (len(y)-1)/2+0.5, moffat_alpha*subsamp, moffat_beta, q = 1.0, posang = 0.0)
+    # these are the subpixel arrays we start with
+    x = np.linspace(-npx / 2  + 0.5, npx / 2 + 0.5, npx * subsamp + 1  )
+    y = np.linspace(-npx / 2  + 0.5, npx / 2 + 0.5, npx * subsamp + 1  )
+    # this is how we pad them by a factor of two
+    delta_x = np.diff(x)[0]
+    delta_y = np.diff(y)[0]
+    x = np.linspace( np.min(x) - delta_x*len(x)/2 , np.max(x) + delta_x*len(x)/2, len(x)*2  )
+    y = np.linspace( np.min(y) - delta_y*len(y)/2 , np.max(y) + delta_y*len(y)/2, len(y)*2  )
+
+    # define the grid coordinates for the subsampled model
+    xg, yg = np.meshgrid(x, y)
+
+    # compute the model
+    img = deVaucouleurs((xg,yg), _x0, _y0 ,F, r0, q=q, posang=posang) 
+
+    # get the shapelet model and normalize it to unity, including the subsampling
+    PSF_model = psf.shapelet_image(xg, yg, nmax, mmax, 0., 0., beta,  shapelet_coeffs)
+    PSF_model /= subsamp**2 * 2.*beta*np.sqrt(np.pi)
 
     # 2. Convolve the profiles
     conv = np.fft.irfft2(np.fft.rfft2(PSF_model) * np.fft.rfft2(img)) # FFT2 is much faster than scipy convolve and gives the same results.
     conv = np.fft.fftshift(conv)
 
     # 3. Trim the boundaries.
-    trm = conv[(npx_p_sp-1)/4:-(npx_p_sp-1)/4+1, (npx_p_sp-1)/4:-(npx_p_sp-1)/4+1]
-    
+    trm = conv[ len(x)/4: -len(x)/4, len(y)/4: -len(y)/4 ]
+
     # 4. Sub-pixel integration (lifted from Curtis' code. See psf.moffat_kernel function for more detailed comments.)    
-    #subkern = np.zeros((npx * subsamp - subsamp + 1, npx * subsamp - subsamp + 1 ))
     x2 = np.linspace(-npx / 2  + 0.5, npx / 2 + 0.5, npx * subsamp + 1  )
     y2 = np.linspace(-npx / 2  + 0.5, npx / 2 + 0.5, npx * subsamp + 1  )
     x2d, y2d = np.meshgrid(x2, y2)
@@ -549,7 +577,37 @@ def deVaucouleurs_model(x0, y0, F, r0, moffat_alpha, moffat_beta, q = 1.0, posan
     kern4d = integrate.make4d(subkern, npx, npx, subsamp)
     dx = x[1] - x[0]
     dy = y[1] - y[0]
-    return integrate.simp4d(kern4d, dx, dy)
+
+    subsamp_img = integrate.simp4d(kern4d, dx, dy)
+
+    # rotate and flip to be consistent with the star and quasar image models
+    subsamp_img = np.rot90(subsamp_img)
+    subsamp_img = np.flipud(subsamp_img)
+
+    '''
+    print 'beta',beta
+    print 'np.sum(PSF_model)',np.sum(PSF_model)
+    print 'np.sum(img)',np.sum(img)
+    print 'np.sum(conv)',np.sum(conv)
+    print 'np.sum(trm)',np.sum(trm)
+    print 'np.sum(integrate.simp4d(kern4d, dx, dy))', np.sum(integrate.simp4d(kern4d, dx, dy))
+    plt.figure()
+    plt.subplot(221)
+    plt.imshow(img, interpolation='none', cmap='viridis')
+    plt.colorbar()
+    plt.subplot(222)
+    plt.imshow(conv, interpolation='none', cmap='viridis')
+    plt.colorbar()
+    plt.subplot(223)
+    plt.imshow(trm, interpolation='none', cmap='viridis')
+    plt.colorbar()
+    plt.subplot(224)
+    plt.imshow(subsamp_img, interpolation='none', cmap='viridis')
+    plt.colorbar()
+    plt.savefig('psf_model.png')
+    #exit()
+    '''
+    return subsamp_img
     
 
 #'''
@@ -622,7 +680,7 @@ class SourceImage:
       for k in range(0,len(self.PSFimage_data))
   '''
   def fit_shapelets(self, readnoise, nmax, mmax, verbose=False, display=0):
-    if(verbose): print 'fitting shapelets'
+    #if(verbose): print 'fitting shapelets'
 
     x=np.arange(0.,len(self.image))
     y=np.arange(0.,len(self.image))
@@ -630,56 +688,47 @@ class SourceImage:
 
     # estimate centroid
     self.x_max, self.y_max = np.unravel_index(self.image.argmax(), self.image.shape)
-    print '\tx_max, y_max', self.x_max, self.y_max
+    #print '\tx_max, y_max', self.x_max, self.y_max
     x0_guess = self.x_max
     y0_guess = self.y_max
     x0_guess = float(x0_guess - (len(x)- 1) / 2) 
     y0_guess = float(y0_guess - (len(y)- 1) / 2)
-    print '\tx0_guess, y0_guess', x0_guess, y0_guess
+    #print '\tx0_guess, y0_guess', x0_guess, y0_guess
 
     # estimate background counts
     background_count_guess = np.min(self.image)
-    print '\tbackground_count_guess ', background_count_guess  
-
-    # plot the image is you get a negative values. This sometimes happens... We may want to mask these pixels.
-    if(background_count_guess<0.): 
-      print np.median(self.image)
-      plt.figure()
-      plt.imshow(self.image, interpolation='none')
-      plt.colorbar()
-      plt.savefig('wtf.png')
-      #exit()
+    #print '\tbackground_count_guess ', background_count_guess  
 
     # estimate fwhm
     pk = np.max(self.image)
     fwhm=1.
-    print '\tpk, fwhm', pk, fwhm
+    #print '\tpk, fwhm', pk, fwhm
     for dx in range(0,15):
         val_a = self.image[self.x_max + dx, self.y_max]
         val_b = self.image[self.x_max + dx+1, self.y_max]
         if(val_a>=pk/2. and val_b<=pk/2.):
 	     fwhm = dx+0.5
 	     break
-    print '\tcrude fwhm', fwhm
+    #print '\tcrude fwhm', fwhm
 
-    if(verbose): print 'initial guess', self.initial_guess_moffat
-    if(verbose): print len(self.image)
+    #if(verbose): print 'initial guess', self.initial_guess_moffat
+    #if(verbose): print len(self.image)
 
     # guess shapelet beta parameter
     guess_beta = fwhm/1.4
     # initizalize shapelet parameter array
-    print 'NMAX', nmax
+    #print 'NMAX', nmax
     #params = np.zeros(((nmax+1)*(nmax+2))//2) 
     params = np.zeros(psf.num_params(nmax, mmax))
     params[0]=self.image[self.x_max,self.y_max]*np.sqrt(np.pi)*guess_beta # peak value Gaussian
-    print 'NMAX', nmax, len(params)
+    #print 'NMAX', nmax, len(params)
     #print params
     #xo = float(x0_guess - (len(x)- 1) / 2)
     #yo = float(y0_guess - (len(y)- 1) / 2)
     self.initial_guess_shapelets = np.concatenate([[x0_guess, y0_guess, guess_beta, background_count_guess],params])
 
-    print self.initial_guess_shapelets
-    print 'xg.shape', self.xg.shape
+    #print self.initial_guess_shapelets
+    #print 'xg.shape', self.xg.shape
     m = psf.shapelet_image(self.xg - (len(x)- 1) / 2, self.yg - (len(y)- 1) / 2, nmax, mmax, x0_guess, y0_guess, guess_beta, params) + background_count_guess 
     d = m-self.image
     spim = self.polarShapelet((self.xg, self.yg), *self.initial_guess_shapelets).reshape(self.xg.shape)
@@ -693,7 +742,7 @@ class SourceImage:
     #popt, pcov = opt.curve_fit(self.polarShapelet, (self.xg, self.yg), self.image.ravel(), sigma = sigmas.ravel(), p0=popt)
     if(np.isnan(pcov).any() or np.isinf(pcov).any()):
         self.fit_ok = False
-    print popt
+    #print popt
     self.shapelet_fit_parameters = popt
     self.shapelet_fit_covariance = pcov
     #spim_ss = psf.shapelet_kernel(popt, nmax, mmax, len(x), len(y))
@@ -702,9 +751,9 @@ class SourceImage:
     self.shapelet_fit_image = spim_ss
     chi_sq =  np.sum( (dspim_ss/sigmas)**2 )/float(len(sigmas.ravel()) - len(params))
     max_chi = np.max( np.abs( dspim_ss/sigmas ) )
-    print 'chis_sq, max_chi', chi_sq, max_chi  
+    #print 'chis_sq, max_chi', chi_sq, max_chi  
     chi = dspim_ss/sigmas
-    print 'chi from mad', 1.4826*np.median(np.abs(chi - np.median(chi)))
+    #print 'chi from mad', 1.4826*np.median(np.abs(chi - np.median(chi)))
     #print '\tpopt',popt
     #print '\tpcov',np.sqrt(pcov[0][0]), np.sqrt(pcov[0][0])/popt[0], np.linalg.det(pcov)
     #EXTRACT CCD COUNT INTEGRAL FROM PSF COEFFICIENTS
@@ -727,16 +776,16 @@ class SourceImage:
     #print 'ixgrid', ixgrid
     #print 'pcov[ixgrid]',pcov[ixgrid], pcov[ixgrid].shape
 
-    print '(1)', 4. * np.pi * np.sum(fn0_list)**2 * pcov[2][2]  
-    print '(2)', 4. * np.pi * popt[2] * np.sum( np.outer( pcov[2][fn_indices] , popt[fn_indices] ) )
-    print '(3)', 4. * np.pi * popt[2]**2 * np.sum( pcov[ np.ix_( fn_indices, fn_indices ) ] )
+    #print '(1)', 4. * np.pi * np.sum(fn0_list)**2 * pcov[2][2]  
+    #print '(2)', 4. * np.pi * popt[2] * np.sum( np.outer( pcov[2][fn_indices] , popt[fn_indices] ) )
+    #print '(3)', 4. * np.pi * popt[2]**2 * np.sum( pcov[ np.ix_( fn_indices, fn_indices ) ] )
 
     sig2_S_CCD  = 4. * np.pi * np.sum(fn0_list)**2 * pcov[2][2]
     sig2_S_CCD += 4. * np.pi * popt[2] * np.sum( np.outer( pcov[2][fn_indices] , popt[fn_indices] ) )
     sig2_S_CCD += 4. * np.pi * popt[2]**2 * np.sum( pcov[ np.ix_( fn_indices, fn_indices ) ] )
 
-    print 'S_CCD', S_CCD, np.sum(spim_ss - popt[3])*1.266
-    print 'sig2_S_CCD', sig2_S_CCD, np.sqrt(sig2_S_CCD), np.sqrt(sig2_S_CCD)/S_CCD 
+    #print 'S_CCD', S_CCD, np.sum(spim_ss - popt[3])*1.266
+    #print 'sig2_S_CCD', sig2_S_CCD, np.sqrt(sig2_S_CCD), np.sqrt(sig2_S_CCD)/S_CCD 
     # add some conditions to identify a bad fit here
 
     if(display>2):
@@ -1041,7 +1090,7 @@ class SourceImage:
     #	y_vals = 15.-1.*(y_vals-15.)
     return x_vals, y_vals
 
-  def quad_image_model(self, (xg,yg, beta, shapelet_coeffs, N_pix, flip), x0, y0, _x1, _x2, _x3, _x4, _y1, _y2, _y3, _y4, amp0, amp1, amp2, amp3, N_bkg, x_lens=0., y_lens=0., amp_lens=0., r0_lens=1., q_lens=1., posang_lens=0.):
+  def quad_image_model(self, (xg,yg, beta, shapelet_coeffs, N_pix, flip), x0, y0, _x1, _x2, _x3, _x4, _y1, _y2, _y3, _y4, amp0, amp1, amp2, amp3, N_bkg, _xlens=0., _ylens=0., amp_lens=0., r0_lens=1., q_lens=1., posang_lens=0.):
     #t0 = time.clock()
     # image x's and y's are flipped. unflip them and add the centroid offset
     x1 = _y1 + x0
@@ -1052,7 +1101,25 @@ class SourceImage:
     y2 = _x2 + y0
     y3 = _x3 + y0
     y4 = _x4 + y0
-
+    xlens = _ylens + x0
+    ylens = _xlens + y0
+    '''
+    plt.figure()
+    plt.subplot(221)
+    plt.plot([_x1],[_y1], 'o')
+    plt.plot([_x2],[_y2], 'o')
+    plt.plot([_x3],[_y3], 'o')
+    plt.plot([_x4],[_y4], 'o')
+    plt.plot([_xlens],[_ylens], 'o')
+    plt.subplot(222)
+    plt.plot([x1],[y1], 'o')
+    plt.plot([x2],[y2], 'o')
+    plt.plot([x3],[y3], 'o')
+    plt.plot([x4],[y4], 'o')
+    plt.plot([xlens],[ylens], 'o')
+    plt.savefig('positions_in_qim_%1.5f.png'%x0)
+    '''
+   
     #print 'x0,y0', x0,y0
     #print 'x1,y1', x1,y1
     #print 'x2,y2', x2,y2
@@ -1060,9 +1127,9 @@ class SourceImage:
     #print 'x4,y4', x4,y4
    
     # NOTE: THIS FUNCTION IS DEFINED TWICE. INTERNALLY IN EACH CASE BUT WE SHOULD IMPROVE THIS BY FINDING A WAY TO DEFINE IT ONCE
-    def shapeletMagnitude((x, y), x0, y0, bkg, sum_CCD):
+    def shapeletMagnitude((x, y), _x0, _y0, bkg, sum_CCD):
       #print 'sum_CCD', sum_CCD
-      parameters = np.concatenate([[x0,y0, beta, bkg], sum_CCD/(2.*np.sqrt(np.pi)*beta)*shapelet_coeffs])
+      parameters = np.concatenate([[_x0,_y0, beta, bkg], sum_CCD/(2.*np.sqrt(np.pi)*beta)*shapelet_coeffs])
       m = psf.shapelet_kernel(parameters, self.FM.nmax, self.FM.mmax, nx = len(x), ny = len(y))
       bkg = parameters[3]
       m = np.rot90(m)
@@ -1101,10 +1168,34 @@ class SourceImage:
     exit()
     '''
     if(amp_lens!=0.):
-        xlens = y_lens+x0
-        ylens = x_lens+y0
-        g   = deVaucouleurs_model(xlens, ylens, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
-        return g+(p0+p1+p2+p3).reshape(N_pix, N_pix) + N_bkg
+        # print 'x_lens, y_lens, amp_lens, r0_lens, q_lens, posang_lens', x_lens, y_lens, amp_lens, r0_lens, q_lens, posang_lens
+        # g   = deVaucouleurs_model(xlens, ylens, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
+        # print 'in quad_imag_model, xlens, ylens', xlens, ylens
+        g   = deVaucouleurs_model(xlens, ylens, amp_lens, r0_lens, beta, shapelet_coeffs, self.FM.nmax, self.FM.mmax, q = q_lens, posang=posang_lens, npx=31)
+        #print 'g.shape', g.shape, 'p0.shape', p0.shape 
+        '''
+        plt.figure()
+        x1,y1 = np.flipud(np.rot90([[_x1,_y1]]))
+        x2,y2 = np.flipud(np.rot90([[_x2,_y2]]))
+        x3,y3 = np.flipud(np.rot90([[_x3,_y3]]))
+        x4,y4 = np.flipud(np.rot90([[_x4,_y4]]))
+        xlens,ylens = np.flipud(np.rot90([[_xlens,_ylens]]))
+
+        plt.plot([x1+(len(xg)-1)/2],[y1+(len(yg)-1)/2], 'o')
+        plt.plot([x2+(len(xg)-1)/2],[y2+(len(yg)-1)/2], 'o')
+        plt.plot([x3+(len(xg)-1)/2],[y3+(len(yg)-1)/2], 'o')
+        plt.plot([x4+(len(xg)-1)/2],[y4+(len(yg)-1)/2], 'o')
+        plt.plot([xlens+(len(xg)-1)/2],[ylens+(len(yg)-1)/2], 'o')
+        if np.max(p0) > 0. and np.max(p1) > 0. and np.max(p2) > 0. and np.max(p3) > 0. :
+          plt.contour(p0.reshape(31,31), levels=np.linspace(0.5*np.max(p0), np.max(p0), 10))
+          plt.contour(p1.reshape(31,31), levels=np.linspace(0.5*np.max(p1), np.max(p1), 10))
+          plt.contour(p2.reshape(31,31), levels=np.linspace(0.5*np.max(p2), np.max(p2), 10))
+          plt.contour(p3.reshape(31,31), levels=np.linspace(0.5*np.max(p3), np.max(p3), 10))
+          plt.contour(g, levels=np.linspace(0.5*np.max(g), np.max(g), 10))
+          plt.colorbar()
+          plt.savefig('gal_in_qim.png')
+        '''
+        return np.ravel(g) + (p0+p1+p2+p3) + N_bkg
     # otherwise return quasar images only
     return (p0+p1+p2+p3) + N_bkg
 
@@ -1241,6 +1332,7 @@ def fit_guassian(image, verbose=False):
   #popt, pcov = opt.curve_fit(twoD_Gaussian, (xg, yg), image.ravel(), p0=initial_guess)
   #popt, pcov = opt.curve_fit(twoD_Gaussian_simple, (xg, yg), image.ravel(), p0=initial_guess_simple)
   popt, pcov = opt.curve_fit(twoD_Moffat, (xg, yg), image.ravel(), p0=initial_guess_moffat)
+
   if(verbose):print popt
   return popt
 
@@ -1366,90 +1458,38 @@ def fitter(image, p0):
 ####################################################################
 
 def estimate_total_light(obj, N_bkg, sigma_read, display=0, out='out'):
-  #obj.fit_moffat(sigma_read)
   estimate, uncertainty, chi_sq, max_chi, fit_parms = obj.fit_shapelets(sigma_read, obj.FM.nmax, obj.FM.mmax, display=display)
-
-  #estimate = np.sum(obj.moffat_fit_image - obj.moffat_parms[5]) # magnitude based on value of fitted counts
-  #uncertainty = np.sqrt(np.sum(obj.moffat_fit_image)+sigma_read**2)
-  # percent uncertainty is on the level of light.
-  #print '\t',N_bkg, obj.moffat_parms[5]
-  #maskval = np.sqrt((3.*np.sqrt(N_bkg))**2 + sigma_read**2)
-  #maskval = np.sqrt((5.*np.sqrt(obj.moffat_parms[5]))**2 + sigma_read**2)
-  #Hmasked  = np.ma.masked_where((obj.image-obj.moffat_parms[5])<maskval,obj.image-obj.moffat_parms[5])
-  #Hmasked2 = np.ma.masked_where((obj.image-obj.moffat_parms[5])<maskval,obj.image)
-  #estimate = np.sum(Hmasked)
-  #frac_uncertainty = np.sqrt(np.sum(Hmasked2)+sigma_read**2) / np.sum(Hmasked)
-  print '\timage peak',np.max(obj.image)
-  print '\timage bkg',np.min(obj.image)
-  #print '\tmasked image sum counts',np.sum(Hmasked2)
-  #print '\tmasked bkg subtractected image sum counts',np.sum(Hmasked)
-  #print '\tfrac_uncertainty',frac_uncertainty
-  print '\tshapelet integrated count',estimate
-  print '\tshapelet uncertainty',uncertainty
-  print '\tfrac uncertainty',uncertainty/estimate
-  
-  #maskval = np.sqrt((3.*np.sqrt(N_bkg))**2 + sigma_read**2)
-  #Hmasked  = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image-N_bkg)
-  #Hmasked2 = np.ma.masked_where((obj.image-N_bkg)<maskval,obj.image)
-  #estimate = np.sum(Hmasked)
-  #uncertainty = np.sqrt(np.sum(Hmasked2))
   res = obj.image-obj.shapelet_fit_image
   chi = res/(np.sqrt(obj.image + obj.FM.readnoise**2))
-  #max_chi = np.max(np.abs(chi))
-  #chi_sq = np.sum(chi**2)/float(len(chi)-)
   if(display >= 3):
-	plt.figure(figsize=(8,11))
-        plt.subplot(321)
+	fig = plt.figure(figsize=(8,11))
+	plt.subplot(321)
 	plt.imshow(obj.image, interpolation='none', vmin=np.min(obj.image), vmax=np.max(obj.image), cmap='viridis')
 	plt.colorbar()
-        plt.title('data')
-        plt.subplot(322)
+	plt.title('data')
+	plt.subplot(322)
 	plt.imshow(obj.shapelet_fit_image, interpolation='none', vmin=np.min(obj.image), vmax=np.max(obj.image), cmap='viridis')
 	plt.colorbar()
-        plt.title('Shapelet Fit\n(n_max=%d, m_max=%d)'%(obj.FM.nmax, obj.FM.mmax))
-        plt.subplot(323)
+	plt.title('Shapelet Fit\n(n_max=%d, m_max=%d)'%(obj.FM.nmax, obj.FM.mmax))
+	plt.subplot(323)
 	plt.imshow(res, interpolation='none', vmin=-np.max(np.max(res)),  vmax=np.max(np.max(res)), cmap='seismic')
 	plt.colorbar()
 	plt.title('residuals')
-        plt.subplot(324)
+	plt.subplot(324)
 	plt.imshow(chi, interpolation='none', vmin=-np.max(np.abs(chi)), vmax=np.max(np.abs(chi)), cmap='seismic')
 	mx = np.max(np.abs(chi))
 	mn = -mx
 	plt.colorbar()
 	plt.title('chi values')
-        plt.subplot(313)
+	plt.subplot(313)
 	plt.hist(np.ravel(chi), bins=30)
 	plt.xlim(mn,mx)
 	plt.suptitle(obj.FM.fits_file_name.split('/')[-1]+'\n'+out, fontsize=20)
 	plt.xlabel('chi values')
 	plt.subplots_adjust(bottom=0.05)
 	plt.title('chi distribution')
-        plt.savefig(out+'.png', dpi=50)
-  #if(display or uncertainty/estimate>3e-2):
-  '''
-  if(display>=3):
-	  print uncertainty/estimate
-	  figure()
-	  subplot(221)
-          m1 = np.min(obj.image)
-          m2 = np.max(obj.image)
-          m3 = np.min(obj.image-N_bkg)
-          m4 = np.max(obj.image-N_bkg)
-	  imshow(obj.image, interpolation='none', vmin=m1, vmax=m2)
-	  colorbar()
-	  title('Image')
-	  subplot(222)
-	  imshow(obj.image-N_bkg, interpolation='none', vmin=m3, vmax=m4)
-	  colorbar()
-	  title('Bkg Subtracted')
-	  subplot(223)
-	  imshow(Hmasked2, interpolation='none', vmin=m1, vmax=m2)
-	  colorbar()
-	  subplot(224)
-	  imshow(Hmasked, interpolation='none', vmin=m3, vmax=m4)
-	  colorbar()
-	  show()
-  '''
+	plt.savefig(out+'.png', dpi=50)
+	plt.close(fig)
   return estimate, uncertainty, chi_sq, max_chi
 
 
@@ -1546,6 +1586,7 @@ def magnitude(value):
 
 def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out = 'out'):
   # KEEP TRACK OF WHICH BAND THE IMAGES ARE AND USE THE CORRESPONDING APASS REFERENCE VALUES.
+  print '\nAPASS_zero_points'
   filt = 'Sloan_r'
   filt_err = 'r_err'
   if( FM.hdulist[0].header['FILTER'] == 'gp'):
@@ -1562,14 +1603,21 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   bkg=[]
   bkg_error=[]
   psf_parms = []
+  psf_parm_err = []
   S_CCD_list = []
   sig_S_CCD_list = []
   chi_sq_list = []
   max_chi_list = []
   for k in range(0,len(APASS_table)):
-    if(APASS_table[filt][k]!='NA' and APASS_table[filt_err][k]!='0' and k not in APASS_rejects): 
-	print 'APASS index, ra, dec', k,  APASS_table['radeg'][k], APASS_table['decdeg'][k]
-	print 'magnitude %1.2f'%(float(APASS_table[filt][k])) 
+	#print ''
+	#print APASS_table[filt][k], APASS_table[filt_err][k], k 
+	#print APASS_table[filt][k]=='NA', APASS_table[filt_err][k]=='0', k in APASS_rejects
+	#print filt
+	if(APASS_table[filt][k]=='NA' or APASS_table[filt_err][k]=='0' or k in APASS_rejects):
+		continue
+	print '\tAPASS index = %d'%k
+	print '\t\tra , dec'.ljust(15), '= %1.5f , %1.5f'%(APASS_table['radeg'][k], APASS_table['decdeg'][k])
+	print ('\t\t%s mag'%(filt)).ljust(15), '= %s'%(APASS_table[filt][k])
 	obj = SourceImage(FM, APASS_table['radeg'][k], APASS_table['decdeg'][k], 31)
 	N_bkg = np.median(obj.image)
 	outTag = out+'_src_%d'%k
@@ -1577,33 +1625,32 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
 	#'''
 	try:
 		intg, intg_unc, chi_sq, max_chi = estimate_total_light(obj, N_bkg, sigma_read, display=display, out=outTag)
-		#intg, intg_unc = estimate_total_light(obj, N_bkg, sigma_read, display=display, out=outTag)
-		#intg, intg_unc = estimate_total_light_elliptical(obj, N_bkg, sigma_read, display=display, out=outTag)
-
 	except:
+		print '\t\tFIT FAILED' 
 		continue
 	#'''
 	if(obj.fit_ok):
-	  print 'fit_ok'
+	  print '\t\tFIT SUCCEEDED'
+	  print '\t\tFlux'.ljust(15), '= %1.0f +/- %1.0f'%(intg, intg_unc)
+	  print '\t\tchi^2'.ljust(15), '= %1.2f'%chi_sq
+	  print '\t\tmax|chi|'.ljust(15), '= %1.2f'%max_chi
 	  APASS_index_list.append(k)
 	  S_CCD_list.append(intg)
 	  sig_S_CCD_list.append(intg_unc)
-	  m_I.append(flux2magnitude(intg))
-	  m_I_unc.append(fluxErr2magErr(intg, intg_unc))
-	  m_APASS.append(float(APASS_table[filt][k]))
-	  m_APASS_unc.append(float(APASS_table[filt_err][k]))
+	  #m_I.append(flux2magnitude(intg))
+	  #m_I_unc.append(fluxErr2magErr(intg, intg_unc))
+	  #m_APASS.append(float(APASS_table[filt][k]))
+	  #m_APASS_unc.append(float(APASS_table[filt_err][k]))
 	  beta.append(obj.shapelet_fit_parameters[2])
-	  beta_error.append(np.sqrt(obj.shapelet_fit_covariance[2][2]))
-	  bkg.append(obj.shapelet_fit_parameters[3])
-	  bkg_error.append(np.sqrt(obj.shapelet_fit_covariance[3][3]))
+	  #beta_error.append(np.sqrt(obj.shapelet_fit_covariance[2][2]))
+	  #bkg.append(obj.shapelet_fit_parameters[3])
+	  #bkg_error.append(np.sqrt(obj.shapelet_fit_covariance[3][3]))
 	  psf_parms.append(obj.shapelet_fit_parameters[4:])
+	  psf_parm_err.append(np.sqrt(np.diagonal(obj.shapelet_fit_covariance)[4:]))
 	  chi_sq_list.append(chi_sq)
 	  max_chi_list.append(max_chi)
-	  '''
-          figure()
-          imshow(obj.image, interpolation='none')
-          title('APASS %d, m_APASS %1.2f'%(k,float(APASS_table[filt][k])))
-	  '''
+
+  '''
   #plt.show()
   # ESTIMATE ZERO POINTS FOR EACH APASS SOURCE
   ZP = np.array(m_APASS)-np.array(m_I)
@@ -1678,15 +1725,50 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
 	for k in range(0,len(psf_parms)):
 		plt.semilogy(np.abs(normed_parms[k]), '.-')
 	plt.savefig(out+'.png', dpi=50)
+  '''
+
+  # Estimate the median of the parameters
+  normed_parms = []
+  normed_parm_err = []
+  for k in range(0,len(psf_parms)):
+	#normed_parms.append( psf_parms[k]/magnitude2flux(np.array(m_I[k]))*2.*np.sqrt(np.pi)*np.array(beta[k]) )
+	normed_parms.append( psf_parms[k]/np.array(S_CCD_list[k])*2.*np.sqrt(np.pi)*np.array(beta[k]) )
+	normed_parm_err.append( psf_parm_err[k]/np.array(S_CCD_list[k])*2.*np.sqrt(np.pi)*np.array(beta[k]) )
+  med_parms = np.median(normed_parms, axis=0)
+
+  if(display>0):
+	plt.figure()
+	ax = plt.subplot(111)
+	#ax.set_yscale('log')
+	ax.set_xscale('log')
+	plt.plot(range(1,len(normed_parms[k])+1),np.abs(med_parms), 'k.-', alpha=0.3, lw=10 )   
+	mx = np.max(np.abs(normed_parms))*1.1
+	for k in range(0,len(psf_parms)):
+		#plt.plot(np.abs(normed_parms[k]), '.-')
+		plt.errorbar(range(1,len(normed_parms[k])+1), np.abs(normed_parms[k]), yerr=normed_parm_err[k], fmt='.-')
+        #print psf_parm_err[k]/normed_parms[k]
+	nm_list = psf.get_nm(obj.FM.nmax, obj.FM.mmax)
+	for i in range(0, len(nm_list)):
+		n,m,imre = nm_list[i]
+		if(n%2==0 and m==0):
+			plt.plot([i+1,i+1],[-mx,mx], 'r--', lw=1) 
+	plt.ylim(-mx, mx)
+	plt.xlim(0.9, len(normed_parms[0])+0.5)
+	plt.xlabel('Shapelet Index')
+	plt.ylabel('Normalized Value')
+	plt.title('APASS Star Normalized Shapelet Coefficients')
+	plt.grid(True)
+	plt.savefig(out+'_shapelet_coeffs.png', dpi=75)
 
 
   # HERE WE SHOULD ADD A COMBINED FIT
   # THE FIRST THING WOULD BE TO MASK PIXELS WITH >4 SIGMA RESIDUALS
   # INPUT THE FITTED BACKGROUND, POSITIONS, AND S_CCD FOR EACH STAR COMBINED WITH THE MEDIAN VALUE OF BETA AND THE SHAPELET COEFFICIENTS
   # FOR NOW, WE WILL JUST RETURN THE AVERAGE SHAPELET COEFFICIENTS
-  beta_mean  = np.median(beta)
-  beta_unc  = 1.4826*np.median(np.abs(beta -  beta_mean))
-  return APASS_index_list, beta_mean, beta_unc, med_parms, S_CCD_list, sig_S_CCD_list, chi_sq_list, max_chi_list
+  beta_med  = np.median(beta)
+  beta_unc  = 1.4826*np.median(np.abs(beta -  beta_med))
+  print '\t\tBeta'.ljust(15), '%1.3f +/- %1.3f'%(beta_med,  beta_unc)
+  return APASS_index_list, beta_med, beta_unc, med_parms, S_CCD_list, sig_S_CCD_list, chi_sq_list, max_chi_list
 
 def readStarList(fnm):
 	ra = []
@@ -1699,6 +1781,7 @@ def readStarList(fnm):
 
 
 def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, beta, shapelet_coeffs, N_px, galFit=False, outputFileTag='out', display=0, emcee_level=1):
+  print '\nquadFit'
   # GET THE QUASAR IMAGE
   obj = SourceImage(FM, ra_qsr, dec_qsr, N_px)
 
@@ -1713,32 +1796,74 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, beta,
   if(r1-r0<0): fl =False
 
   # SET AN INITIAL AMPLITUDE SCALE, THESE VALUES ARE APPROXIMATED FROM Kochenek, 2006
-  amp_scale = 1. # does not matter for correlation
-  x0,y0 = 0., 0.
+  amp_scale = 1. # This value will be re-normalized after correlation.
+  x0,y0 = 0., 0. 
   amp0 = amp_scale    
   amp1 = amp_scale/1.2
   amp2 = amp_scale/1.5
   amp3 = amp_scale/2.
-  amp_lens = amp_scale*0.
+  amp_lens = amp_scale*0. # zero this out in the initial fit
+
   # convert image ra and dec from arcseconds to degrees
   dec_images = dec_qsr + dec_images/3600.
-  ra_images = ra_qsr   + ra_images/3600.
-  dec_lens = dec_qsr + dec_lens/3600.
-  ra_lens = ra_qsr   + ra_lens/3600.
-  print dec_images, dec_lens
-  print ra_images, ra_lens
+  ra_images  = ra_qsr  + ra_images/3600.
+  dec_lens   = dec_qsr + dec_lens/3600.
+  ra_lens    = ra_qsr  + ra_lens/3600.
+
+  # get the image positions in pixels
   x_images,y_images = FM.bigw.wcs_world2pix(ra_images,dec_images,1)
   x_images -= xv #- (N_px-1)/2
   y_images -= yv #- (N_px-1)/2
+
+  # set lower and upper bounds to the image pixel positions 
+  x_imagesU = x_images - 3.*0.003/float(FM.hdulist[0].header['PIXSCALE']) # 3-sigma bound
+  x_imagesL = x_images + 3.*0.003/float(FM.hdulist[0].header['PIXSCALE']) # 3-sigma bound
+  y_imagesU = y_images - 3.*0.003/float(FM.hdulist[0].header['PIXSCALE']) # 3-sigma bound
+  y_imagesL = y_images + 3.*0.003/float(FM.hdulist[0].header['PIXSCALE']) # 3-sigma bound
+  for k in range(0,len(x_imagesU)):
+    if x_imagesU[k]<x_imagesL[k]:
+        x_imagesU[k], x_imagesL[k] = x_imagesL[k], x_imagesU[k]
+    if y_imagesU[k]<y_imagesL[k]:
+        y_imagesU[k], y_imagesL[k] = y_imagesL[k], y_imagesU[k]
+
   x_lens,y_lens = FM.bigw.wcs_world2pix(ra_lens,dec_lens,1)
+  # x_lens and y_lens are offsets from the lens coordinates
   x_lens -= xv #- (N_px-1)/2
   y_lens -= yv #- (N_px-1)/2
-  r0_lens = 1.5/float(FM.hdulist[0].header['PIXSCALE'])
-  el_lens = 0.09
-  q_lens = 1./np.sqrt(1.-el_lens**2)
-  posang_lens = 174.8
-  print xv, x_images, x_lens
-  print yv, y_images, y_lens
+
+  x_lensL = x_lens - 3.*0.003/float(FM.hdulist[0].header['PIXSCALE']) # 3-sigma bound
+  x_lensU = x_lens + 3.*0.003/float(FM.hdulist[0].header['PIXSCALE']) # 3-sigma bound
+  y_lensL = y_lens - 3.*0.003/float(FM.hdulist[0].header['PIXSCALE']) # 3-sigma bound 
+  y_lensU = y_lens + 3.*0.003/float(FM.hdulist[0].header['PIXSCALE']) # 3-sigma bound
+  y_lensL = y_lens - 3.*0.003/float(FM.hdulist[0].header['PIXSCALE']) # 3-sigma bound 
+
+  # Check the ordering of upper and lower. 
+  if(x_lensL>x_lensU):
+    x_lensL, x_lensU = x_lensU, x_lensL
+  if(y_lensL>y_lensU):
+    y_lensL, y_lensU = y_lensU, y_lensL
+
+  # lens deVaucouleurs radius
+  r0_lens  = 1.5 # arcseconds, from Courbin+ arXiv:1009.1473
+  r0_lensU = 1.5+3.*0.08 # 3-sigma upped bound from Courbin+ arXiv:1009.1473
+  r0_lensL = 1.5-3.*0.08 # 3-sigma upped bound from Courbin+ arXiv:1009.1473
+  # convert to pixel-space values
+  r0_lens  /= float(FM.hdulist[0].header['PIXSCALE'])
+  r0_lensU /= float(FM.hdulist[0].header['PIXSCALE'])
+  r0_lensL /= float(FM.hdulist[0].header['PIXSCALE'])
+
+  # lens ellipticity, from Courbin+ arXiv:1009.1473
+  el_lens = 0.3 # 0.09
+  err_el =  0.01     # 0.01
+  q_lens  = 1./(1.-el_lens)
+  q_lensU = q_lens + 3.*err_el/(1.-el_lens)**2 # 3-sigma upped bound from Courbin+ arXiv:1009.1473
+  q_lensL = q_lens - 3.*err_el/(1.-el_lens)**2 # 3-sigma upped bound from Courbin+ arXiv:1009.1473
+
+  posang_lens  = 174.8
+  posang_lensU = posang_lens + 3.*1.7 # 3-sigma upped bound from Courbin+ arXiv:1009.1473
+  posang_lensL = posang_lens - 3.*1.7 # 3-sigma upped bound from Courbin+ arXiv:1009.1473
+  #print xv, x_images, x_lens
+  #print yv, y_images, y_lens
 
   # create x,y grid
   xg, yg = np.mgrid[:N_px,:N_px] 
@@ -1770,8 +1895,8 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, beta,
   dx = corr_x_max-15
   dy = corr_y_max-15
   # SOME FUNINESS HERE. I DETERMINED IT FROM SCANNING THROUGH SEVERAL IMAGES
-  print 'corr_x_max, corr_y_max', corr_x_max, corr_y_max
-  print 'dx, dy', dx,dy
+  #print 'corr_x_max, corr_y_max', corr_x_max, corr_y_max
+  #print 'dx, dy', dx,dy
   #if(corr_x_max>=15): dx = corr_x_max - 31
   #if(corr_y_max>=15): dy = corr_y_max - 31
   # DEFINE NEW PARAMETERS FOR THE MODELED IMAGE
@@ -1783,7 +1908,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, beta,
   amp2 *= amp_fac
   amp3 *= amp_fac
   amp_lens *= amp_fac
-  print 'amp correction factor', 
+  #print 'amp correction factor', 
   # PRODUCE THE MODEL IMAGE WITHOUT LENSING GALAXY
   qim2 = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), x0,y0,x_images[0],x_images[1],x_images[2],x_images[3],
                              y_images[0],y_images[1],y_images[2],y_images[3], 
@@ -1816,10 +1941,21 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, beta,
   # curve_fit qim
   gain = obj.FM.hdulist[0].header['GAIN']
   sigmas = np.sqrt( obj.FM.readnoise**2 + obj.image/gain )
-  p0 = [x0,y0,x_images[0],x_images[1],x_images[2],x_images[3], y_images[0], y_images[1], y_images[2], y_images[3], amp0, amp1, amp2, amp3, N_bkg]
-  popt_ng, pcov_ng = opt.curve_fit(obj.quad_image_model, (xg, yg, beta, shapelet_coeffs, len(obj.image), fl), obj.image.ravel(), sigma = sigmas.ravel(), absolute_sigma=True, p0=p0)
+  p0 = [x0,  y0,  x_images[0], x_images[1], x_images[2], x_images[3], y_images[0], y_images[1], y_images[2], y_images[3], amp0,   amp1,   amp2, amp3,  N_bkg]
+  pU = [15., 15., x_imagesU[0],x_imagesU[1],x_imagesU[2],x_imagesU[3],y_imagesU[0],y_imagesU[1],y_imagesU[2],y_imagesU[3], np.inf,np.inf,np.inf,np.inf,np.inf]
+  pL = [-15.,-15.,x_imagesL[0],x_imagesL[1],x_imagesL[2],x_imagesL[3],y_imagesL[0],y_imagesL[1],y_imagesL[2],y_imagesL[3], 0.,    0.,    0.,    0.,    0.,   ]
+  bounds = [pL,pU]
 
-  print popt_ng
+  '''
+  for k in range(0, len(p0)):
+    print '\t', k, pL[k], p0[k], pU[k] 
+    if(pU[k]<=pL[k]):
+        exit()
+  '''
+
+  popt_ng, pcov_ng = opt.curve_fit(obj.quad_image_model, (xg, yg, beta, shapelet_coeffs, len(obj.image), fl), obj.image.ravel(), sigma = sigmas.ravel(), absolute_sigma=True, p0=p0, bounds=bounds)
+
+  #print popt_ng
   qim3 = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), *popt_ng).reshape(N_px, N_px)
 
   # ESTIMATE ITS DISTRIBUTION OF CHI VALUES
@@ -1827,10 +1963,11 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, beta,
   chi  = res/sigmas
   chi_x_max, chi_y_max = np.unravel_index(np.abs(chi).argmax(), chi.shape)
   chi2 = np.sum(chi**2)/(float(obj.image.size - len(popt_ng)))
-  print 'quadFit chi2, max_chi', chi2, np.max(np.abs(chi)), chi_x_max, chi_y_max
+  print '\tW/o  lensing galaxy chi^2:', chi2
+  #print 'quadFit chi2, max_chi', chi2, np.max(np.abs(chi)), chi_x_max, chi_y_max
 
   #'''
-  print 'dx, dy', dx,dy
+  #print 'dx, dy', dx,dy
   mn = np.min(obj.image)
   mx = np.max(obj.image)
   if(display>2):
@@ -1851,7 +1988,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, beta,
     plt.imshow(chi, interpolation='none', vmin=-np.max(np.abs(chi)), vmax=np.max(np.abs(chi)), cmap='seismic')
     plt.plot([chi_y_max],[chi_x_max], 'o', ms=8, mfc='none', mec='g', mew=2 )
     plt.xlim(0-0.5,N_px-0.5)
-    plt.ylim(0-0.5,N_px-0.5)
+    plt.ylim(N_px-0.5, 0-0.5)
     plt.title('chi')
     plt.colorbar()
     #plt.suptitle()
@@ -1874,349 +2011,124 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, beta,
     return popt_ng, pcov_ng, chi2, np.max(np.abs(chi))
 
 
-
+  # print 'Fitting the central galaxy'
   ##################################################################################################
 
-  # ESTIMATE THE LENS AMPLITUDE USING THE MAXIMUM OF THE RESIDUALS. THIS SHOULD AT LEAST GET IT IN THE RIGHT SCALE!
-  print 'NO LENS FIT MAXIMUM RESIDUAL', np.max(res)
-  # INITIAL LENS GALAXY FLUX ESTIMATE. THE CONSTANT TRANSLATES THE FLUX TO THE EPECTED PEAK VALUE
-  amp_lens = 126669.015793*np.max(res)*r0_lens**2
-  print 'INITIAL LENS AMPLITUDE', np.max(res)
-  print 'x0,y0', x0,y0
-  m = deVaucouleurs_model(x0+(N_px-1)/2, y0+(N_px-1)/2, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=0.0, npx=31)
-  print np.max(m)
-  plt.figure()
-  plt.subplot(221)
-  plt.imshow(m, interpolation='none', vmin = mn, vmax = mx, cmap='viridis')
-  plt.savefig('lens_gal.png')
-  exit()
-  amp_lens *= np.max(res)/np.max(m)
-  m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=0.0, npx=31)
-  print np.max(m)
-  #exit()
-  # PRODUCE THE PARAMETERS FOR THE MODEL IMAGE
-  #theta2 = [x0,y0,amp0,amp1,amp2,amp3, amp_lens, r0_lens, q_lens, posang_lens, alpha, beta, N_bkg]
-  theta2 = [x0,y0,amp0,amp1,amp2,amp3, amp_lens, alpha, beta, N_bkg]
-  #theta2 = [x0,y0,amp0,amp1,amp2,amp3, N_bkg]
+  # start with post-fit values
+  x0,  y0,  x_images[0], x_images[1], x_images[2], x_images[3], y_images[0], y_images[1], y_images[2], y_images[3],  amp0,  amp1,  amp2,  amp3,  N_bkg = popt_ng[0:15]
 
-  # ESTIMATE ITS DISTRIBUTION OF CHI VALUES
-  #chi2 = obj.moffat_chi_vals(theta2, 31, fl, x_images, y_images, x_lens, y_lens)
-  #chi2 = obj.moffat_chi_vals_w_lens(theta2, 31, fl, x_images, y_images, x_lens, y_lens)
-  chi2 = obj.moffat_chi_vals_w_lens_amp_only(theta2, 31, fl, x_images, y_images, x_lens, y_lens, r0_lens, q_lens, posang_lens)
-  #chi2 = obj.moffat_chi_vals2(theta2, alpha, beta,31, fl)
+  # SET THE INITIAL LENS AMPLITUDE TO 1/10th THE LEVEL OF THE BACKGROUND
+  amp_lens0 = 1.e9
+  m = deVaucouleurs_model(x0+(N_px-1)/2, y0+(N_px-1)/2, amp_lens0, r0_lens, beta, shapelet_coeffs, obj.FM.nmax, obj.FM.mmax, q = q_lens, posang=0.0, npx=31)
+  amp_lens0 *= 0.1*N_bkg/np.max(m)
+  m = deVaucouleurs_model(x0+(N_px-1)/2, y0+(N_px-1)/2, amp_lens0, r0_lens, beta, shapelet_coeffs, obj.FM.nmax, obj.FM.mmax, q = q_lens, posang=0.0, npx=31)
+  amp_lens0U = np.inf
+  amp_lens0L = 0.
 
-  print 'MINIMIZATION ROUND',1
-  # FIT A MODEL TO THE DATA
-  #results = opt.minimize(obj.moffat_chi_sq2, theta2,  args=(alpha, beta, 31, fl), method='Nelder-Mead')
-  #results = opt.minimize(obj.moffat_chi_sq_w_lens, theta2,  args=(31, fl, x_images, y_images, x_lens, y_lens), method='Nelder-Mead')
-  results = opt.minimize(obj.moffat_chi_sq_w_lens_amp_only, theta2,  args=(31, fl, x_images, y_images, x_lens, y_lens, r0_lens, q_lens, posang_lens), method='Nelder-Mead')
-  #x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, r0_lens_fit, q_lens_fit, posang_lens_fit, alpha, beta, N_bkg = results.x
-  x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, alpha, beta, N_bkg = results.x
-  print '\tresults'
-  print '\t\tx0\t',results.x[0]
-  print '\t\ty0\t',results.x[1]
-  print '\t\tamp0\t',results.x[2]
-  print '\t\tamp1\t',results.x[3]
-  print '\t\tamp2\t',results.x[4]
-  print '\t\tamp3\t',results.x[5]
-  print '\t\tamp_lens\t',results.x[6]
-  #print '\t\tr0_lens\t',results.x[7]
-  #print '\t\tq_lens\t',results.x[8]
-  #print '\t\tposang_lens\t',results.x[9]
-  print '\t\talpha\t',results.x[7]
-  print '\t\tbeta\t',results.x[8]
-  print '\t\tN-bkg\t',results.x[9]
-  m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
-  print '\t\tdeVaucouleurs Model Peak', np.max(m)
+  # perform combined fit
+  p0 = [x0,  y0,  x_images[0], x_images[1], x_images[2], x_images[3], y_images[0], y_images[1], y_images[2], y_images[3],  amp0,  amp1,  amp2,  amp3,  N_bkg,  x_lens, y_lens, amp_lens0, r0_lens, q_lens, posang_lens]
+
+  #qim_gal = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), *p0).reshape(N_px, N_px)
+  #p_gal = [x0,  y0,  x_images[0], x_images[1], x_images[2], x_images[3], y_images[0], y_images[1], y_images[2], y_images[3],  0.,  0.,  0.,  0.,  0.,  x_lens, y_lens, amp_lens0, r0_lens, q_lens, posang_lens]
+  #g = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), *p_gal).reshape(N_px, N_px)
+
+  pU = [15., 15., x_imagesU[0],x_imagesU[1],x_imagesU[2],x_imagesU[3],y_imagesU[0],y_imagesU[1],y_imagesU[2],y_imagesU[3], np.inf,np.inf,np.inf,np.inf,np.inf, x_lensU,y_lensU,amp_lens0U,r0_lensU,q_lensU,posang_lensU]
+  pL = [-15.,-15.,x_imagesL[0],x_imagesL[1],x_imagesL[2],x_imagesL[3],y_imagesL[0],y_imagesL[1],y_imagesL[2],y_imagesL[3], 0.,    0.,    0.,    0.,    0.,     x_lensL,y_lensL,amp_lens0L,r0_lensL,q_lensL,posang_lensL]
 
   '''
-  # I FIND IT PAYS TO KEEP THE MINIMIZATION GOING FOR A FEW MORE ROUNDS
-  for k in range(0,4):
-    #print '\tresults',results.x
-    continue
-    print 'MINIMIZATION ROUND',k+2
-    results = opt.minimize(obj.moffat_chi_sq_w_lens, results.x,  args=(31, fl, x_images, y_images, x_lens, y_lens), method='Nelder-Mead')
-    x0,y0,amp0,amp1,amp2,amp3, amp_lens, r0_lens, q_lens, posang_lens, alpha, beta, N_bkg = results.x
-    print '\tresults'
-    print '\t\tx0\t',results.x[0]
-    print '\t\ty0\t',results.x[1]
-    print '\t\tamp0\t',results.x[2]
-    print '\t\tamp1\t',results.x[3]
-    print '\t\tamp2\t',results.x[4]
-    print '\t\tamp3\t',results.x[5]
-    print '\t\tamp_lens\t',results.x[6]
-    print '\t\tr0_lens\t',results.x[7]
-    print '\t\tq_lens\t',results.x[8]
-    print '\t\tposang_lens\t',results.x[9]
-    print '\t\talpha\t',results.x[10]
-    print '\t\tbeta\t',results.x[11]
-    print '\t\tN-bkg\t',results.x[12]
-    m = deVaucouleurs_model(x0, y0, amp_lens, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
-    print '\t\tdeVaucouleurs Model Peak', np.max(m)
-    #results = opt.minimize(obj.moffat_chi_sq2, results.x,  args=(alpha, beta, 31, fl), method='Nelder-Mead')
+  for k in range(0, len(p0)):
+    print '\t', k, pL[k], p0[k], pU[k] 
+    if(pU[k]<=pL[k]):
+        exit()
   '''
-  print '\tresults',results.x
-  #x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, r0_lens_fit, q_lens_fit, posang_lens_fit, alpha, beta, N_bkg = results.x
-  x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, alpha, beta, N_bkg = results.x
-  m = deVaucouleurs_model(x0, y0, amp_lens_fit, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
-  print '\tFitted deVaucouleurs Model Peak', np.max(m)
-  # GET THE FITTED IMAGE MODEL
-  #x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, r0_lens_fit, q_lens_fit, posang_lens_fit, alpha, beta, N_bkg = results.x
-  #x0,y0,amp0,amp1,amp2,amp3, amp_lens_fit, r0_lens_fit, q_lens_fit, posang_lens_fit, alpha, beta, N_bkg = results.x
-  #x0,y0,amp0,amp1,amp2,amp3, N_bkg = results.x
-  qim3 = obj.quad_image_model(x0,y0,x_images,y_images, amp0,amp1,amp2,amp3, alpha, beta, N_bkg, 31, fl, x_lens, y_lens, amp_lens_fit, r0_lens, q_lens, posang_lens)
+  bounds = [pL,pU]
+  popt_wg, pcov_wg = opt.curve_fit(obj.quad_image_model, (xg, yg, beta, shapelet_coeffs, len(obj.image), fl), obj.image.ravel(), sigma = sigmas.ravel(), absolute_sigma=True, p0=p0, bounds=bounds)
 
-  #m = deVaucouleurs_model(x0, y0, amp_lens_fit, r0_lens, alpha, beta, q = q_lens, posang=posang_lens, npx=31)
-  #print 'deVaucouleurs Model Peak', np.max(m)
-  '''
-  plt.figure(figsize=(18,6))
-  plt.subplot(131)
-  plt.imshow(qim3, interpolation='none', cmap='YlGnBu_r')
-  plt.colorbar()
-  plt.subplot(132)
-  plt.imshow(obj.image, interpolation='none', cmap='YlGnBu_r')
-  plt.colorbar()
-  plt.subplot(133)
-  res = obj.image-qim3
-  plt.imshow(res, interpolation='none',  cmap='seismic')
-  plt.colorbar()
-  plt.contour(obj.image, colors='k')
-  plt.contour(qim3, colors='g')
-  plt.savefig('qim_test.png')
-  '''
-  # ESTIMATE ITS CHI VALUES, ITS PEAK CHI VALUE AND LOCATION ON THE MAP
-  #chi_vals = obj.moffat_chi_vals_w_lens(results.x, 31, fl, x_images, y_images, x_lens, y_lens)
-  chi_vals = obj.moffat_chi_vals_w_lens_amp_only(results.x, 31, fl, x_images, y_images, x_lens, y_lens, r0_lens, q_lens, posang_lens)
-  #chi_vals = obj.moffat_chi_vals2(results.x, alpha, beta,31, fl)
+  # produce best fit models
+  qim_gal = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), *popt_wg).reshape(N_px, N_px)
+  p_gal = popt_wg.copy()
+  p_gal[10:15] *= 0.
+  g = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), *p_gal).reshape(N_px, N_px)
 
-  chi_x_max, chi_y_max = np.unravel_index(np.abs(chi_vals).argmax(), chi_vals.shape)
-  #print 'alpha, beta, N_bkg', alpha, beta, N_bkg
-  #print 'max chi x,y, val', chi_x_max, chi_y_max, np.max(np.abs(chi_vals))
-  #print results.x
+  # calculate residuals, chi, and chi squared values
+  res = obj.image-qim_gal
+  chi  = res/sigmas
+  chi_x_max, chi_y_max = np.unravel_index(np.abs(chi).argmax(), chi.shape)
+  chi2 = np.sum(chi**2)/(float(obj.image.size - len(popt_ng)))
 
-  #########################################################################
-  #           0   1     2    3    4     5         6        7     8      9  
-  #theta2 = [x0, y0, amp0,amp1,amp2, amp3, amp_lens,   alpha, beta, N_bkg]
-  xg, yg = np.mgrid[:31, :31]
+  print '\tWith lensing galaxy chi^2:', chi2
+  #print 'dx, dy', dx,dy
+  if(display>2):
+    mn = np.min(obj.image)
+    mx = np.max(obj.image)
+    plt.figure()
+    plt.subplot(221)
+    plt.imshow(qim_gal, interpolation='none', vmin = mn, vmax = mx, cmap='viridis')
+    plt.title('fit')
+    plt.colorbar()
+    plt.subplot(222)
+    plt.imshow(obj.image, interpolation='none', vmin = mn, vmax = mx, cmap='viridis')
+    plt.title('data')
+    plt.colorbar()
+    plt.subplot(223)
+    plt.imshow(res, interpolation='none', vmin=-np.max(np.abs(res)), vmax=np.max(np.abs(res)), cmap='seismic')
+    plt.title('residuals')
+    plt.colorbar()
+    plt.subplot(224)
+    plt.imshow(chi, interpolation='none', vmin=-np.max(np.abs(chi)), vmax=np.max(np.abs(chi)), cmap='seismic')
+    plt.plot([chi_y_max],[chi_x_max], 'o', ms=8, mfc='none', mec='g', mew=2 )
+    plt.xlim(0-0.5,N_px-0.5)
+    plt.ylim(N_px-0.5, 0-0.5)
+    plt.title('chi')
+    plt.colorbar()
+    #plt.suptitle()
+    plt.savefig('%s_quadFit_WG.png'%outputFileTag)
 
-  parms1 = [results.x[2], results.x[7], results.x[8], 15, 15, results.x[9]]
-  moffat_fit_image_1  = twoD_Moffat((xg, yg), *parms1).reshape(31,31)
+    '''
+    plt.figure()
+    plt.subplot(111)
+    plt.imshow(g, interpolation='none', cmap='viridis')
+    plt.colorbar()
+    plt.contour(obj.image, levels=np.linspace(0.5*np.max(obj.image), np.max(obj.image), 10))
+    plt.savefig('%s_fitgal.png'%outputFileTag)
 
-  parms2 = [results.x[3], results.x[7], results.x[8], 15, 15, results.x[9]]
-  moffat_fit_image_2  = twoD_Moffat((xg, yg), *parms2).reshape(31,31)
+    plt.figure()
+    plt.subplot(111)
+    plt.imshow(g, interpolation='none', cmap='viridis')
+    plt.colorbar()
+    plt.contour(qim_gal, levels=np.linspace(0.5*np.max(qim_gal), np.max(qim_gal), 10))
+    plt.savefig('%s_fitgal2.png'%outputFileTag)
+    '''
 
-  parms3 = [results.x[4], results.x[7], results.x[8], 15, 15, results.x[9]]
-  moffat_fit_image_3  = twoD_Moffat((xg, yg), *parms3).reshape(31,31)
+    plt.figure()
+    plt.subplot(111)
+    plt.imshow(obj.image, interpolation='none', cmap='viridis')
+    plt.colorbar()
+    plt.contour(g, levels=np.linspace(0.5*np.max(g), 0.51*np.max(g), 1), colors='r')
+    p_im1 = popt_wg.copy()
+    p_im1[[11,12,13,14,17]] *= 0.
+    im1 = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), *p_im1).reshape(N_px, N_px)
+    plt.contour(im1, levels=np.linspace(0.5*np.max(im1), 0.51*np.max(im1), 1), colors='r')
 
-  parms4 = [results.x[5], results.x[7], results.x[8], 15, 15, results.x[9]]
-  moffat_fit_image_4  = twoD_Moffat((xg, yg), *parms4).reshape(31,31)
+    p_im2 = popt_wg.copy()
+    p_im2[[10,12,13,14,17]] *= 0.
+    im2 = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), *p_im2).reshape(N_px, N_px)
+    plt.contour(im2, levels=np.linspace(0.5*np.max(im2), 0.51*np.max(im2), 1), colors='r')
 
-  parms5 = [results.x[6], r0_lens, q_lens, posang_lens]
+    p_im3 = popt_wg.copy()
+    p_im3[[10,11,13,14,17]] *= 0.
+    im3 = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), *p_im3).reshape(N_px, N_px)
+    plt.contour(im3, levels=np.linspace(0.5*np.max(im3), 0.51*np.max(im3), 1), colors='r')
 
-  print '\t',parms1
-  print '\t',parms2
-  print '\t',parms3
-  print '\t',parms4
-  print '\t',parms5
-  
-  if(emcee_level==2):
-    FM.qsr_min_parms = results.x
+    p_im4 = popt_wg.copy()
+    p_im4[[10,11,12,14,17]] *= 0.
+    im4 = obj.quad_image_model((xg,yg, beta, shapelet_coeffs, len(obj.image), fl), *p_im4).reshape(N_px, N_px)
+    plt.contour(im4, levels=np.linspace(0.5*np.max(im4), 0.51*np.max(im4), 1), colors='r')
+    plt.savefig('%s_fitgal_contours.png'%outputFileTag)
 
-  '''
-  plt.figure()
-  plt.subplot(221)
-  plt.imshow(moffat_fit_image_1-results.x[8])
-  plt.title(np.sum(moffat_fit_image_1-results.x[8]))
-  plt.colorbar()
-  plt.subplot(222)
-  plt.imshow(moffat_fit_image_2-results.x[8])
-  plt.title(np.sum(moffat_fit_image_2-results.x[8]))
-  plt.colorbar()
-  plt.subplot(223)
-  plt.imshow(moffat_fit_image_3-results.x[8])
-  plt.title(np.sum(moffat_fit_image_3-results.x[8]))
-  plt.colorbar()
-  plt.subplot(224)
-  plt.imshow(moffat_fit_image_4-results.x[8])
-  plt.title(np.sum(moffat_fit_image_4-results.x[8]))
-  plt.colorbar()
-  plt.show()
-  '''
+  return popt_ng, pcov_ng, chi2, np.max(np.abs(chi))
 
-  '''
-  a1 = moffat_analytical_integral(results.x[2], alpha, beta)
-  a2 = moffat_analytical_integral(results.x[3], alpha, beta)
-  a3 = moffat_analytical_integral(results.x[4], alpha, beta)
-  a4 = moffat_analytical_integral(results.x[5], alpha, beta)
-  '''
-
-  '''
-  print '\tpeaks', np.sum(moffat_fit_image_1-results.x[12]), np.sum(moffat_fit_image_2-results.x[12]), np.sum(moffat_fit_image_3-results.x[12]), np.sum(moffat_fit_image_4-results.x[12])
-  a1 = np.sum(moffat_fit_image_1-results.x[12])
-  a2 = np.sum(moffat_fit_image_2-results.x[12])
-  a3 = np.sum(moffat_fit_image_3-results.x[12])
-  a4 = np.sum(moffat_fit_image_4-results.x[12])
-  '''
-
-  print '\tpeaks', np.sum(moffat_fit_image_1-results.x[9]), np.sum(moffat_fit_image_2-results.x[9]), np.sum(moffat_fit_image_3-results.x[9]), np.sum(moffat_fit_image_4-results.x[9])
-  a1 = np.sum(moffat_fit_image_1-results.x[9])
-  a2 = np.sum(moffat_fit_image_2-results.x[9])
-  a3 = np.sum(moffat_fit_image_3-results.x[9])
-  a4 = np.sum(moffat_fit_image_4-results.x[9])
-
-  e1 = np.sqrt( np.sum(moffat_fit_image_1) + FM.readnoise**2 )
-  e2 = np.sqrt( np.sum(moffat_fit_image_2) + FM.readnoise**2 )
-  e3 = np.sqrt( np.sum(moffat_fit_image_3) + FM.readnoise**2 )
-  e4 = np.sqrt( np.sum(moffat_fit_image_4) + FM.readnoise**2 )
-
-  print '\ta1', a1
-  print '\te1', e1
-  print '\ta2', a2
-  print '\te2', e2
-  print '\ta3', a3
-  print '\te3', e3
-  print '\ta4', a4
-  print '\te4', e4
-  print ''
-
-  m1 = magnitude(a1) + ZP_mean
-  m2 = magnitude(a2) + ZP_mean
-  m3 = magnitude(a3) + ZP_mean
-  m4 = magnitude(a4) + ZP_mean
-
-  me1 = 2.5/2.3*(e1/a1-1./2.*(e1/a1)**2 + 1./3.*(e1/a1)**3)
-  me2 = 2.5/2.3*(e2/a2-1./2.*(e2/a2)**2 + 1./3.*(e2/a2)**3)
-  me3 = 2.5/2.3*(e3/a3-1./2.*(e3/a3)**2 + 1./3.*(e3/a3)**3)
-  me4 = 2.5/2.3*(e4/a4-1./2.*(e4/a4)**2 + 1./3.*(e4/a4)**3)
-
-  print '\tm1', m1
-  print '\tme1', me1
-  print '\tm2', m2
-  print '\tme2', me2
-  print '\tm3', m3
-  print '\tme3', me3
-  print '\tm4', m4
-  print '\tme4', me4
-
-  me1 = np.sqrt(me1**2 + ZP_rms**2 )
-  me2 = np.sqrt(me2**2 + ZP_rms**2 )
-  me3 = np.sqrt(me3**2 + ZP_rms**2 )
-  me4 = np.sqrt(me4**2 + ZP_rms**2 )
-
-  print ''
-  print '\tm1', m1
-  print '\tme1', me1
-  print '\tm2', m2
-  print '\tme2', me2
-  print '\tm3', m3
-  print '\tme3', me3
-  print '\tm4', m4
-  print '\tme4', me4
-
-  #print m1,me1, m2,me2, m3, me3, m4, me4
-
-  
-  plt.figure(figsize=(12, 12)) 
-  plt.subplot(331)
-  plt.imshow(obj.image, interpolation='none')
-  plt.colorbar()
-  plt.contour(obj.image, colors='k')
-  plt.title('data')
-  plt.subplot(332)
-  plt.imshow(qim, interpolation='none')
-  plt.colorbar()
-  plt.contour(obj.image, colors='k')
-  plt.title('first stab\nw/ data contour')
-  plt.subplot(333)
-  plt.imshow(corr, interpolation='none')
-  plt.colorbar()
-  plt.title('first stab & data\ncross-correlation')
-  plt.subplot(334)
-  plt.imshow(qim2, interpolation='none')
-  plt.colorbar()
-  plt.contour(obj.image, colors='k')
-  plt.title('initial model\nw/ data contour')
-  plt.subplot(335)
-  mv = np.max(np.abs(obj.image - qim2))
-  plt.imshow(obj.image - qim2, cmap='jet', interpolation='none', vmin=-mv, vmax=mv)
-  plt.colorbar()
-  plt.contour(obj.image, colors='k')
-  plt.title('initial model residuals')
-  plt.subplot(336)
-  mv = np.max(np.abs(chi2))
-  plt.imshow(chi2, cmap='jet', interpolation='none', vmin=-mv, vmax=mv)
-  plt.colorbar()
-  plt.contour(obj.image, colors='k')
-  plt.subplot(337)
-  plt.imshow(qim3, interpolation='none', vmin=np.min(obj.image), vmax=np.max(obj.image))
-  plt.colorbar()
-  plt.contour(obj.image, colors='k')
-  plt.title('fitted model \n w/ data contour')
-  plt.subplot(338)
-  mv = np.max(np.abs(obj.image - qim3))
-  plt.imshow(obj.image - qim3, cmap='jet', interpolation='none', vmin=-mv, vmax=mv)
-  plt.colorbar()
-  plt.contour(obj.image, colors='k')
-  plt.title('fitted model residuals')
-  plt.subplot(339)
-  mv = np.max(np.abs(chi_vals))
-  plt.imshow(chi_vals, cmap='jet', interpolation='none', vmin=-mv, vmax=mv)
-  plt.colorbar()
-  plt.contour(obj.image, colors='k')
-  plt.plot([chi_y_max], [chi_x_max],'o', mfc='none', mec='k', mew=3, ms=15)
-  plt.title('fitted Model Chi vals')
-  plt.suptitle(obj.FM.fits_file_name.split('/')[-1],fontsize=20)
-  plt.savefig(outputFileTag+'_quadFit.png', dpi=50)
-
-  print 'qim_lens posang_lens', posang_lens
-  qim_lens_prior = obj.quad_image_model(x0,y0,x_images,y_images, 0., 0., 0., 0., alpha, beta, 0., 31, fl, x_lens, y_lens, amp_lens, r0_lens, q_lens, posang_lens)
-  qim_lens_fit = obj.quad_image_model(x0,y0,x_images,y_images, 0., 0., 0., 0., alpha, beta, 0., 31, fl, x_lens, y_lens, amp_lens_fit, r0_lens, q_lens, posang_lens)
-  #qim_lens = obj.quad_image_model(x0,y0,x_images,y_images, 0., 0., 0., 0., alpha, beta, 0., 31, fl, x_lens, y_lens, amp_lens_fit, r0_lens_fit, q_lens_fit, posang_lens_fit)
-  plt.figure(figsize=(12,6))
-  plt.subplot(121)
-  plt.imshow(qim_lens_prior, interpolation='none', vmin=np.min(qim_lens_prior), vmax=np.max(qim_lens_prior))
-  plt.colorbar()
-  plt.contour(qim_lens_prior, colors='k')
-  plt.title('lensing galaxy prior')
-  plt.subplot(122)
-  plt.imshow(qim_lens_fit, interpolation='none', vmin=np.min(qim_lens_fit), vmax=np.max(qim_lens_fit))
-  plt.colorbar()
-  plt.contour(qim_lens_fit, colors='k')
-  plt.title('lensing galaxy fit')
-  plt.savefig(outputFileTag+'_lensgal.png', dpi=50)
-
-  plt.figure()
-  plt.hist(np.ravel(chi_vals))
-  plt.xlabel('chi values')
-  plt.ylabel('counts')
-  plt.suptitle(obj.FM.fits_file_name.split('/')[-1],fontsize=20)
-  plt.savefig(outputFileTag+'_quadFitChi.png', dpi=50)
-  #plt.savefig()
-
-  flat_chiVals = np.ravel(chi_vals)
-  chiSq= np.sum(flat_chiVals**2)/(len(flat_chiVals)-len(results.x))
-  #chiSq = np.sum(chi_vals.flat**2)/(len(chi_vals.flat)-len(results.x))
-  
-  #print chiSq
-  #exit()
-  return m1, me1, m2, me2, m3, me3, m4, me4, chiSq, np.max(np.abs(chi_vals))
-  #plt.show()
-  #figure()
-  #hist(chi_vals)
-  #show()
-
-  '''
-  if(count2==11):
-	plt.figure()
-	estimate_total_light(obj, N_bkg, sigma_read, display=True)
-	plt.figure()
-	levels=arange(0,np.max(obj.image),100)[::-1]
-	plt.imshow(obj.image-N_bkg, interpolation='none')
-	plt.colorbar()
-	plt.show()
-  '''
-
-#def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, m1, m2, m3, m4, me4, N_px, outputFileTag='out'):
+# THE FUNCTION BELOW NEEDS MAJOR UPDATES! SEE quadFit ABOVE.
 def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, beta_err, alpha_beta_corr_coeff, m1, m2, m3, m4, N_px, ra_images, dec_images, outputFileTag='out'):
   print '\n\t####################################'
   print   '\t# STARTING EMCEE ###################'
@@ -2647,6 +2559,7 @@ def fluxErr2magErr(fluxVal, fluxErr):
     return -2.5*np.log10(1-fluxErr/fluxVal)
     
 def starFit(FM, ra_star_list, dec_star_list,  beta, shapelet_coefficients, N_px=31, display=0, outputFileTag='out_star'):
+  print '\nstarFit'
 
   def shapeletMagnitude((x, y), x0, y0, bkg, sum_CCD):
     parameters = np.concatenate([[x0,y0, beta, bkg], sum_CCD/(2.*np.sqrt(np.pi)*beta)*shapelet_coefficients])
@@ -2669,15 +2582,16 @@ def starFit(FM, ra_star_list, dec_star_list,  beta, shapelet_coefficients, N_px=
   S_CCD_list = []
   S_CCD_unc_list = []
   for k in range(0,len(ra_star_list)):
-    print 'starFit'
+    print '\tStar Index =',k
+    print '\t\tra, dec'.ljust(12), '= %1.5f , %1.5f'%(ra_star_list[k], dec_star_list[k])
     obj = SourceImage(FM, ra_star_list[k], dec_star_list[k], N_px)
     # guess values of x0, y0, and bkg
     x_max, y_max = np.unravel_index(obj.image.argmax(), obj.image.shape)
     x0_guess = float(x_max - (N_px- 1) / 2) 
     y0_guess = float(y_max - (N_px- 1) / 2)
     x2d, y2d = np.mgrid[:len(obj.image), :len(obj.image)]
-    print 'x_max, y_max', x_max, y_max
-    print 'x0_guess, y0_guess', x0_guess, y0_guess
+    #print 'x_max, y_max', x_max, y_max
+    #print 'x0_guess, y0_guess', x0_guess, y0_guess
 
     bkg_guess = np.median(obj.image)
     sum_CCD_guess = (np.max(obj.image)-bkg_guess)/1.266 # /(2.*np.sqrt(np.pi)*beta*1.226)
@@ -2689,16 +2603,18 @@ def starFit(FM, ra_star_list, dec_star_list,  beta, shapelet_coefficients, N_px=
     try:
       popt, pcov = opt.curve_fit(shapeletMagnitude, (x2d,y2d), obj.image.ravel(), sigma = sigmas.ravel(), absolute_sigma=True, p0=[x0_guess, y0_guess, bkg_guess, sum_CCD_guess])
     except:
-      print 'STAR %d FIT FAILED'%k
+      print '\t\tSTAR FIT FAILED'
       continue
     
-    print 'popt', popt
-    print 'pcov', pcov
+    print '\t\tSTAR FIT SUCCEEDED'
+    #print 'popt', popt
+    #print 'pcov', pcov
     fitted_image = shapeletMagnitude( (x2d,y2d), *popt)
     df = obj.image - fitted_image.reshape(N_px,N_px)
     chi = df/sigmas
-    print 'chisq/ndof', np.sum(chi**2)/float(chi.size-4)
-    print 'S_CCD', popt[3],np.sqrt(pcov[3][3]), np.sqrt(pcov[3][3])/popt[3] 
+    print '\t\tS_CCD'.ljust(12), '= %1.0f +/- %1.0f'%( popt[3],np.sqrt(pcov[3][3]))
+    print '\t\tchisq/ndof'.ljust(12), '= %1.3f'%(np.sum(chi**2)/float(chi.size-4))
+    print '\t\tmax|chi|'.ljust(12), '= %1.3f'%np.max(chi)
     star_index_list.append(k)
     chi_sq_list.append(np.sum(chi**2)/float(chi.size-4))
     max_chi_list.append(np.max(chi))

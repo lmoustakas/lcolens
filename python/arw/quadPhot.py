@@ -16,8 +16,8 @@ matplotlib.rcParams['figure.facecolor']='white'
 if __name__ == "__main__":
 
     parser=argparse.ArgumentParser(description='quadPhot routine to calculate crowded field quadruply lensed quasar photometry')
-    parser.add_argument("-d","--dataDir", default='/nisushome/data2/romerowo/lcogt_data/he045-1223_wcs_corrected', help="directory with FITS file images",type=str)
-    parser.add_argument("-i","--inputFile", default = 'lsc1m009-fl03-20141217-0042-e90.fits', help="directory with FITS file images",type=str)
+    parser.add_argument("-d","--dataDir", default='/halo_nobackup/lenssim/romerowo/lcogt_data/Dec_2015_100_hours', help="directory with FITS file images",type=str)
+    parser.add_argument("-i","--inputFile", default = 'coj1m003-kb71-20151214-0083-e91.fits', help="directory with FITS file images",type=str)
     parser.add_argument("-nmax","--nmax", default = 12, help="Maximum n mode for shapelet fitting",type=int)
     parser.add_argument("-mmax","--mmax", default = 3, help="Maximum m mode for shapelet fitting",type=int)
     parser.add_argument("-o","--outputFileTag", default = 'out', help="directory with FITS file images",type=str)
@@ -32,11 +32,14 @@ if __name__ == "__main__":
     args=parser.parse_args()
     inputFile = args.dataDir+'/'+args.inputFile
     print '\n############################################################'
-    print 'quadPhot inputFile', inputFile.split('/')[-1]
+    print 'quadPhot inputFile ', inputFile.split('/')[-1]
     print 'quadPhot outputFile',args.outputFileTag
     print '############################################################\n'
-    print args
-     
+    # print args
+    # print 
+    print '\nInputs Parameters and Values'
+    for arg in vars(args):
+        print '\t', arg.ljust(14), '= ', getattr(args, arg)
     # DECIMAL RA and DEC VALUES OF HE0435-1223
     ra_qsr = (4.+38./60.+14.9/60./60.)/24*360 
     dec_qsr = -12. - (17./60 +14.4/60./60.)
@@ -46,7 +49,7 @@ if __name__ == "__main__":
     FM = FITSmanager(inputFile, args.nmax, args.mmax)
 
     # PLOT QSR IMAGE
-    FM.plot_image(ra_qsr, dec_qsr, Npx=npxls, out = args.outputFileTag+'_qsr')
+    # FM.plot_image(ra_qsr, dec_qsr, Npx=npxls, out = args.outputFileTag+'_qsr')
 
     # ESTIMATE THE BACKGROUND AND READ NOISE
     FM.estimate_read_noise(display=args.plots, out = args.outputFileTag+'_readnoise')
@@ -56,7 +59,6 @@ if __name__ == "__main__":
     #APASS_rejects = [9, 21, 22] # 9 and 21 seem to be at the edge of the field of view. 22 seems close to the edge, sometimes we don't catch it.
     APASS_rejects = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17, 19, 21, 22] # 1-17 are too bright. 18 and 19 are repeats, 9 and 21 seem to be at the edge of the field of view. 22 seems close to the edge, sometimes we don't catch it.
     APASS_index_list, beta_mean, beta_unc, shapelet_coeffs, APASS_S_CCD_list, APASS_sig_S_CCD_list, APASS_chi_sq, APASS_max_chi = APASS_zero_points(FM, APASS_table, APASS_rejects, FM.readnoise, display=args.plots, out = args.outputFileTag+'_APASS')
-    print '\tSeeing, beta, err_beta', beta_mean,  beta_unc
 
 
     # FROM CASTLES
@@ -70,6 +72,7 @@ if __name__ == "__main__":
     dec_images -= dec_offset
     ra_lensgal  -= ra_offset
     dec_lensgal -= dec_offset
+    '''
     # FROM Wisotzki02
     ra_imagesW=[0.,-1.483,-2.488,-0.951]
     dec_imagesW=[0.,0.567, -0.589, -1.620]
@@ -83,20 +86,19 @@ if __name__ == "__main__":
     dec_imagesW -= dec_offsetW
     ra_lensgalW  -= ra_offsetW
     dec_lensgalW -= dec_offsetW
-    print ra_images - ra_imagesW
-    print dec_images - dec_imagesW
+    #print ra_images - ra_imagesW
+    #print dec_images - dec_imagesW
+    '''
 
-    print 'PIXSCALE', FM.hdulist[0].header['PIXSCALE']
-    print 'ra images in arcsec', ra_images
-    print 'dec images in arcsec', dec_images
-    #m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, ZP_mean, ZP_wrms, alpha_mean, beta_mean, npxls, outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
-    #m1, me1, m2, me2, m3, me3, m4, me4, chiSq, maxChi = 
+    #popt_ng, pcov_ng, chisq_ng, max_chi_ng = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, beta_mean, shapelet_coeffs, npxls, galFit=False, display=args.plots,  outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
 
-    popt_ng, pcov_ng, chisq_ng, max_chi_ng = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, beta_mean, shapelet_coeffs, npxls, galFit=False, display=args.plots,  outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
 
-    #'''
+    popt_ng, pcov_ng, chisq_ng, max_chi_ng = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, beta_mean, shapelet_coeffs, npxls, galFit=True, display=args.plots,  outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
+
     star_ra, star_dec = readStarList(args.star_list)
     star_index_list, star_chi_sq, star_max_chi, star_S_CCD, star_S_CCD_unc = starFit(FM, star_ra, star_dec, beta_mean, shapelet_coeffs, N_px=npxls, display = args.plots, outputFileTag=args.outputFileTag)
+
+    #exit()
 
     filter = FM.hdulist[0].header['FILTER']
     mjd_obs = float(FM.hdulist[0].header['MJD-OBS'])
@@ -127,6 +129,7 @@ if __name__ == "__main__":
     qsr_chisq = chisq_ng, 
     qsr_max_chi = max_chi_ng
     )
+    print 'quadPhot Complete'
     #'''
     ######
     exit()
