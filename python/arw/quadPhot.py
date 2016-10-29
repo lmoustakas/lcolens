@@ -93,41 +93,42 @@ if __name__ == "__main__":
     #popt_ng, pcov_ng, chisq_ng, max_chi_ng = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, beta_mean, shapelet_coeffs, npxls, galFit=False, display=args.plots,  outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
 
 
-    popt_ng, pcov_ng, chisq_ng, max_chi_ng = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, beta_mean, shapelet_coeffs, npxls, galFit=True, display=args.plots,  outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
+    popt_wg, pcov_wg, chisq_wg, max_chi_wg = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, beta_mean, shapelet_coeffs, npxls, galFit=True, display=args.plots,  outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
 
     star_ra, star_dec = readStarList(args.star_list)
     star_index_list, star_chi_sq, star_max_chi, star_S_CCD, star_S_CCD_unc = starFit(FM, star_ra, star_dec, beta_mean, shapelet_coeffs, N_px=npxls, display = args.plots, outputFileTag=args.outputFileTag)
 
     #exit()
 
-    filter = FM.hdulist[0].header['FILTER']
-    mjd_obs = float(FM.hdulist[0].header['MJD-OBS'])
-    npz_out = args.outputFileTag + '_results.npz'
+    filter   = FM.hdulist[0].header['FILTER']
+    mjd_obs  = float(FM.hdulist[0].header['MJD-OBS'])
+    npz_out  = args.outputFileTag + '_results.npz'
+
     np.savez(npz_out,
-	inputFile = inputFile,
-	outFileTag = args.outputFileTag,
-	mjd_obs = mjd_obs,
-	readnoise = FM.readnoise,
-	beta_mean = beta_mean,
-	beta_unc = beta_unc,
+	inputFile       = inputFile,
+	outFileTag      = args.outputFileTag,
+	mjd_obs         = mjd_obs,
+	readnoise       = FM.readnoise,
+	beta_mean       = beta_mean,
+	beta_unc        = beta_unc,
 	shapelet_coeffs = shapelet_coeffs,
-	nmax = args.nmax,
-	mmax = args.mmax,
-	filter = filter,
-	APASS_index_list = APASS_index_list,
-	APASS_S_CCD = APASS_S_CCD_list,
+	nmax            = args.nmax,
+	mmax            = args.mmax,
+	filter          = filter,
+	APASS_index_list= APASS_index_list,
+	APASS_S_CCD     = APASS_S_CCD_list,
 	APASS_sig_S_CCD = APASS_sig_S_CCD_list,
-	APASS_chi_sq = APASS_chi_sq, 
-	APASS_max_chi = APASS_max_chi,
-        star_index_list = star_index_list,
-	star_S_CCD = star_S_CCD,
-	star_S_CCD_unc = star_S_CCD_unc,
-	star_chi_sq = star_chi_sq,
-	star_max_chi = star_max_chi,
-    qsr_ng_parms = popt_ng, 
-    qsr_ng_covar = pcov_ng,
-    qsr_chisq = chisq_ng, 
-    qsr_max_chi = max_chi_ng
+	APASS_chi_sq    = APASS_chi_sq, 
+	APASS_max_chi   = APASS_max_chi,
+    star_index_list = star_index_list,
+	star_S_CCD      = star_S_CCD,
+	star_S_CCD_unc  = star_S_CCD_unc,
+	star_chi_sq     = star_chi_sq,
+	star_max_chi    = star_max_chi,
+    qsr_wg_parms    = popt_wg, 
+    qsr_wg_covar    = pcov_wg,
+    qsr_chisq       = chisq_wg, 
+    qsr_max_chi     = max_chi_wg
     )
     print 'quadPhot Complete'
     #'''
