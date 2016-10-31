@@ -2126,7 +2126,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, beta,
     plt.contour(im4, levels=np.linspace(0.5*np.max(im4), 0.51*np.max(im4), 1), colors='r')
     plt.savefig('%s_fitgal_contours.png'%outputFileTag)
 
-  return popt_ng, pcov_ng, chi2, np.max(np.abs(chi))
+  return popt_wg, pcov_wg, chi2, np.max(np.abs(chi))
 
 # THE FUNCTION BELOW NEEDS MAJOR UPDATES! SEE quadFit ABOVE.
 def emceeQuadFit(FM, ra_qsr, dec_qsr, ZP_mean, ZP_rms, alpha, beta, alpha_err, beta_err, alpha_beta_corr_coeff, m1, m2, m3, m4, N_px, ra_images, dec_images, outputFileTag='out'):
