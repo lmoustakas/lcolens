@@ -652,7 +652,9 @@ class SourceImage:
     self.pixels = pixels
 
     # Mask bad values
-    self.image = np.ma.masked_where(self.image<=0,self.image)
+    # curve fit does not respond to masked arrays. The data has to be fed with these points actually excluded.
+    # this is a somewhat time consuming change to make and validate.
+    # self.image = np.ma.masked_where(self.image<=0,self.image)
     '''
     # find ratio of nearest neighbors
     Nx,Ny = self.image.shape
@@ -749,10 +751,11 @@ class SourceImage:
     spim_ss = self.polarShapelet((self.xg, self.yg), *popt).reshape(self.xg.shape)
     dspim_ss = spim_ss-self.image
     self.shapelet_fit_image = spim_ss
-    chi_sq =  np.sum( (dspim_ss/sigmas)**2 )/float(len(sigmas.ravel()) - len(params))
-    max_chi = np.max( np.abs( dspim_ss/sigmas ) )
-    #print 'chis_sq, max_chi', chi_sq, max_chi  
     chi = dspim_ss/sigmas
+    chi_sq =  np.sum( chi**2 )/float(len(sigmas.ravel()) - len(params))
+    max_chi = np.max( np.abs( chi ) )
+    #print 'fitted: chis_sq, max_chi', chi_sq, max_chi  
+
     #print 'chi from mad', 1.4826*np.median(np.abs(chi - np.median(chi)))
     #print '\tpopt',popt
     #print '\tpcov',np.sqrt(pcov[0][0]), np.sqrt(pcov[0][0])/popt[0], np.linalg.det(pcov)
@@ -1608,6 +1611,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
   sig_S_CCD_list = []
   chi_sq_list = []
   max_chi_list = []
+  pass_quality_cut = []
   for k in range(0,len(APASS_table)):
 	#print ''
 	#print APASS_table[filt][k], APASS_table[filt_err][k], k 
@@ -1628,7 +1632,7 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
 	except:
 		print '\t\tFIT FAILED' 
 		continue
-	#'''
+
 	if(obj.fit_ok):
 	  print '\t\tFIT SUCCEEDED'
 	  print '\t\tFlux'.ljust(15), '= %1.0f +/- %1.0f'%(intg, intg_unc)
@@ -1649,6 +1653,18 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
 	  psf_parm_err.append(np.sqrt(np.diagonal(obj.shapelet_fit_covariance)[4:]))
 	  chi_sq_list.append(chi_sq)
 	  max_chi_list.append(max_chi)
+
+	  pass_quality_cut.append(True)
+	  #'''
+	  # DO NOT USE FOR PSF PARAMETER ESTIMATION UNLESS IT PASSES THESE QUALITY CUTS
+	  chi_sq_cut  = 1.3  * 1.
+	  max_chi_cut = 4.5  * 1.
+	  if(chi_sq > chi_sq_cut or max_chi > max_chi_cut):
+	    print '\t\tQUALITY CUTS FAILED'
+	    print '\t\t\tchi^2    %1.2f > %1.2f'%(chi_sq,  chi_sq_cut)
+	    print '\t\t\tmax|chi| %1.2f > %1.2f'%(max_chi, max_chi_cut)
+	    pass_quality_cut[-1] = False
+	    #continue
 
   '''
   #plt.show()
@@ -1734,7 +1750,15 @@ def APASS_zero_points(FM, APASS_table, APASS_rejects, sigma_read, display=0, out
 	#normed_parms.append( psf_parms[k]/magnitude2flux(np.array(m_I[k]))*2.*np.sqrt(np.pi)*np.array(beta[k]) )
 	normed_parms.append( psf_parms[k]/np.array(S_CCD_list[k])*2.*np.sqrt(np.pi)*np.array(beta[k]) )
 	normed_parm_err.append( psf_parm_err[k]/np.array(S_CCD_list[k])*2.*np.sqrt(np.pi)*np.array(beta[k]) )
-  med_parms = np.median(normed_parms, axis=0)
+  # take the median parameter value only for stars that pass the quality cut.
+  normed_parms     = np.array(normed_parms)
+  pass_quality_cut = np.array(pass_quality_cut)
+  print 'pass_quality_cut', pass_quality_cut
+  if np.sum(pass_quality_cut)==0:
+    print 'NO SUCCESSFUL FITS TO PSF STARS'
+    print 'EXITING PROGRAM'
+    exit()
+  med_parms = np.median(normed_parms[pass_quality_cut], axis=0)
 
   if(display>0):
 	plt.figure()
@@ -2617,7 +2641,7 @@ def starFit(FM, ra_star_list, dec_star_list,  beta, shapelet_coefficients, N_px=
     print '\t\tmax|chi|'.ljust(12), '= %1.3f'%np.max(chi)
     star_index_list.append(k)
     chi_sq_list.append(np.sum(chi**2)/float(chi.size-4))
-    max_chi_list.append(np.max(chi))
+    max_chi_list.append(np.max(np.abs(chi)))
     S_CCD_list.append(popt[3])
     S_CCD_unc_list.append(np.sqrt(pcov[3][3]))
     if(display>2):
