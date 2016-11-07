@@ -90,7 +90,7 @@ if __name__ == "__main__":
     #print dec_images - dec_imagesW
     '''
 
-    #popt_ng, pcov_ng, chisq_ng, max_chi_ng = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, beta_mean, shapelet_coeffs, npxls, galFit=False, display=args.plots,  outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
+    popt_ng, pcov_ng, chisq_ng, max_chi_ng = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, beta_mean, shapelet_coeffs, npxls, galFit=False, display=args.plots,  outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
 
 
     popt_wg, pcov_wg, chisq_wg, max_chi_wg = quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lensgal, dec_lensgal, beta_mean, shapelet_coeffs, npxls, galFit=True, display=args.plots,  outputFileTag=args.outputFileTag, emcee_level = args.emcee_level)
@@ -127,8 +127,12 @@ if __name__ == "__main__":
 	star_max_chi    = star_max_chi,
     qsr_wg_parms    = popt_wg, 
     qsr_wg_covar    = pcov_wg,
-    qsr_chisq       = chisq_wg, 
-    qsr_max_chi     = max_chi_wg
+    qsr_wg_chisq    = chisq_wg, 
+    qsr_wg_max_chi  = max_chi_wg,
+    qsr_ng_parms    = popt_ng, 
+    qsr_ng_covar    = pcov_ng,
+    qsr_ng_chisq    = chisq_ng, 
+    qsr_ng_max_chi  = max_chi_ng
     )
     print 'quadPhot Complete'
     #'''
