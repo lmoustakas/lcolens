@@ -65,6 +65,7 @@ if __name__ == "__main__":
         PSF_max_chi_cut = args.PSF_max_chi_cut
 
 
+    ''' PSF RUNS '''
     if(args.analysis_level==0):
         # INITIALIZE THE CUSTOMIZED FITS FILE MANAGER
         FM = FITSmanager(imageFile)
@@ -74,6 +75,7 @@ if __name__ == "__main__":
         estimate_PSF(FM, field_inputs['PSF_Star_File'], FM.readnoise, nmax, mmax, field_inputs['Num_Pixels'],  display=args.plots, out = args.outputFileTag)
         print 'PSF Estimation Complete'
 
+    ''' Photometric Fitting '''
     if(args.analysis_level==1):
         # GET THE FITS FILE NAME
         f = np.load(args.PSF_file)
@@ -81,12 +83,24 @@ if __name__ == "__main__":
         readnoise = float(f['readnoise'])
         f.close()
         # ESTIMATE THE MEDAIN PSF PARAMETERS
-        beta, beta_unc, PSF_parms, PSF_parms_unc, num_good_PSF_fit = Get_Median_PSF_Parameters(args.PSF_file, PSF_chi_sq_cut, PSF_max_chi_cut )
+        beta, beta_unc, PSF_parms, PSF_parms_unc, num_good_PSF_fit = Get_Median_PSF_Parameters(args.PSF_file, PSF_chi_sq_cut, PSF_max_chi_cut, nmax, mmax )
+
+        # CHECK S_CCD NORMALIZATION OF PSF PARAMETERS. 
+        nm_list = np.array(psf.get_nm(nmax, mmax))
+        fn_indices = fn0_indices = np.where(nm_list[:,1]==0)[0]
+        #print 'PSF_parms', len(PSF_parms)
+        #print 'nm_list', len(nm_list)
+        S_CCD = np.sum(PSF_parms[fn0_indices])*(2*np.sqrt(np.pi)*beta)
+        print 'normed_parameter S_CCD', S_CCD
+
         # ESTIMATE THE BRIGHTNESS OF STARS IN THE FIELD
         star_table = ascii.read(field_inputs['Phot_Star_File'])
         #print star_table.keys()
         star_ra  = np.array(star_table['ALPHA_J2000_1'])
         star_dec = np.array(star_table['DELTA_J2000_1'])
+	# USE THIS ONE TO CHECK WITH APASS STARS
+        #star_ra  = np.array(star_table['radeg'])
+        #star_dec = np.array(star_table['decdeg'])
         #star_ra  = np.array(star_table['ALPHA_J2000_2'])
         #star_dec = np.array(star_table['DELTA_J2000_2'])
         #star_ra, star_dec = readStarList2(field_inputs['Phot_Star_File'])
@@ -119,7 +133,36 @@ if __name__ == "__main__":
         )
         print 'Stellar Photometry Complete'
 
-    if(args.analysis_level>1):
+    ''' Lensed Quasar Fitting '''
+    if(args.analysis_level==2):
+        # GET THE FITS FILE NAME
+        f = np.load(args.PSF_file)
+        FM = FITSmanager(str(f['imageFile']))
+        readnoise = float(f['readnoise'])
+        f.close()
+        # ESTIMATE THE MEDAIN PSF PARAMETERS
+        beta, beta_unc, PSF_parms, PSF_parms_unc, num_good_PSF_fit = Get_Median_PSF_Parameters(args.PSF_file, PSF_chi_sq_cut, PSF_max_chi_cut, nmax, mmax )
+        # FIT THE QUAD IMAGE
+        # Check that Phot_cal is true (then use expected flux of the galaxy, otherwise, fit for the flux of the lensing galaxy
+
+        # CHECK S_CCD NORMALIZATION OF PSF PARAMETERS. 
+        nm_list = np.array(psf.get_nm(nmax, mmax))
+        fn_indices = fn0_indices = np.where(nm_list[:,1]==0)[0]
+        #print 'PSF_parms', len(PSF_parms)
+	    #print 'nm_list', len(nm_list)
+        S_CCD = np.sum(PSF_parms[fn0_indices])*(2*np.sqrt(np.pi)*beta)
+        print 'normed_parameter S_CCD', S_CCD
+        ra_field, dec_field = convertRaAndDec(field_inputs['Field_RA'], field_inputs['Field_Dec'])
+        print 'Field RA, DEC', ra_field, dec_field
+        popt_wg, pcov_wg, chisq_wg, max_chi_wg = quadFit(FM, float(ra_field), float(dec_field), 
+                                                         np.array(field_inputs['Point_Source_RAs']), np.array(field_inputs['Point_Source_Decs']), 
+                                                         float(field_inputs['Lens_Gal_RA']), float(field_inputs['Lens_Gal_Dec']), 
+                                                         readnoise, beta, PSF_parms, nmax, mmax, 
+                                                         npxls, galFit=True, display=args.plots,  
+                                                         outputFileTag=args.outputFileTag, emcee_level = 0)
+    #########################################################################################
+
+    if(args.analysis_level>2):
 
         print field_inputs
         # DECIMAL RA and DEC VALUES OF HE0435-1223
