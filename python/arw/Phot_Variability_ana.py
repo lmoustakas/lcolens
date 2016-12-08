@@ -26,10 +26,15 @@ num_Star_good_cut = 30
 Star_fractional_uncertainty_cut = 0.1
 #Star_fractional_uncertainty_cut = 0.1
 
+# Time variabiluity Cuts
+# NUmber of images a star participates in: 600
+# Outliers MAD: 2. 
+
 QSR_chi_max_cut = 4.5
 QSR_chi_sq_cut = 1.3
 num_QSR_good_cut = 1
 QSR_fractional_uncertainty_cut = 0.3
+
 
 
 ###########################################
@@ -373,10 +378,10 @@ def binned_light_curve(_times, _mags, _mag_err, bins):
 
 def flux_corrected_curves(fnm_list, t0=57008.):
   star_table = ascii.read('sample.csv')
-  print star_table
-  print star_table['SDSS_r']
+  #print star_table
+  #print star_table['SDSS_r']
 
-  print 'function: flux_corrected_curves'
+  print 'Function: flux_corrected_curves'
   # index the times, magnitudes, errors, and create mask matrix for the values that pass our cuts.
   times = [] 
   image_num = []
@@ -409,38 +414,316 @@ def flux_corrected_curves(fnm_list, t0=57008.):
              star_mask_matrix[j][i] = True
     f.close()
 
+
+  ########################################################################################
   # PURGE STARS THAT WON'T CONTRIBUTE TO THE FIT
   num_image_contributions_by_star = np.sum(star_mask_matrix, axis=1)
-  #print np.sum(star_mask_matrix)
-  #print np.sum(star_mask_matrix, axis=0).shape, np.sum(star_mask_matrix, axis=0)
-  #print np.sum(star_mask_matrix, axis=1).shape, np.sum(star_mask_matrix, axis=1)
-
-  #star_cut = num_image_contributions_by_star > 100
   star_cut = num_image_contributions_by_star > 600
-  print 'star_cut', star_cut
   star_index = np.where(star_cut)[0]
-  print 'star_index', star_index
-  print 'np.sum(star_cut)', np.sum(star_cut)
   
+  figure(figsize=(10,12))
+  ax1 = subplot(211)
+  plot(num_image_contributions_by_star, 'ko')
+  plot(np.arange(0,len(num_image_contributions_by_star)), 600*np.ones(len(num_image_contributions_by_star)), 'r--', lw=2)
+  xlabel('Star Index')
+  ylabel('Number of Images\nPassing Quality Cuts')
+  grid(True)
+  title('Star Time Series Cuts')
+  xlim(0, len(num_image_contributions_by_star))
+  ax2 = subplot(212)
+  hist(num_image_contributions_by_star, bins=np.linspace(0.,900,46), cumulative=-1, facecolor='none')
+  y1, y2 = ax2.get_ylim()
+  plot([600, 600], [y1,y2], 'r--', lw=2)
+  xlabel('Number of Images Passing Quality Cuts')
+  ylabel('Cumulative Counts')
+  grid(True)
+
+  ########################################################################################
+
   N_stars = np.sum(star_cut)
-  print star_mag_matrix.shape, star_cut.shape 
-  print star_mag_matrix[star_cut,:].shape, star_cut.shape 
+  print '\n\tNum. Images Where a star contributes > 600 Times:', N_stars
+  print '\n\tReshape Star Data Matrix from', star_mag_matrix.shape, 'to', star_mag_matrix[star_cut,:].shape
+
   star_mag_matrix     = star_mag_matrix[star_cut,:]
   star_mag_err_matrix = star_mag_err_matrix[star_cut,:]
   star_mask_matrix    = star_mask_matrix[star_cut,:]
-  #exit()
-  # NEED TO CONTINUE FILTERING OUT UNDERUSED STARS HERE
-  #for j_star in N_stars:
-  #  new_star_mag_matrix[j_star]
-  figure()
-  #plot(sorted(np.sum(star_mask_matrix, axis=1)), np.linspace(0.,1.,len(np.sum(star_mask_matrix, axis=1))))
-  subplot(211)
-  hist((np.sum(star_mask_matrix, axis=1)), bins=np.linspace(0.,900,45))
-  subplot(212)
-  hist((np.sum(star_mask_matrix, axis=1)), bins=np.linspace(0.,900,45), cumulative=-1)
 
   times = np.array(times)
   image_num = np.array(image_num)
+
+  ########################################################################################
+
+  print '\n\tMaking Initial Estimates of Average Fluxes and Time Variability'
+  star_mags = np.zeros(N_stars)
+  for ii in range(0,N_stars):
+    star_mags[ii] = np.median(star_mag_matrix[ii,:][star_mask_matrix[ii,:]])
+    #star_mags[ii] = np.mean(star_mag_matrix[ii,:][star_mask_matrix[ii,:]])
+
+  time_var = np.zeros(star_mag_matrix.shape[1])
+  for jj in range(0, star_mag_matrix.shape[1]):
+    res = star_mag_matrix[:,jj] - star_mags[:]
+    time_var[jj] = np.median(res[star_mask_matrix[:,jj]])
+    #time_var[jj] = np.mean(res[star_mask_matrix[:,jj]])
+
+  print '\n\tCheck Magnitudes and Time Series were all Estimates'
+  print '\t\tnp.sum(star_mags==0.)',np.sum(star_mags==0.)
+  print '\t\tnp.sum(time_var==0.)',np.sum(time_var==0.)
+
+ 
+  ########################################################################################
+  # REMOVE TIME POINTS WHERE NO STARS PARTICIPATE
+
+  time_cut = time_var!=0.
+  print '\n\tReshape Star Data Matrix from', star_mag_matrix.shape, 'to', star_mag_matrix[:,time_cut].shape
+
+  time_index = np.where(time_cut)[0]
+  star_mag_matrix     = star_mag_matrix[:,time_cut]
+  star_mag_err_matrix = star_mag_err_matrix[:,time_cut]
+  star_mask_matrix    = star_mask_matrix[:,time_cut]
+  time_var            = time_var[time_cut]
+  times               = times[time_cut]
+  image_num           = image_num[time_cut]
+
+  ########################################################################################
+
+  print '\n\tRe-making Initial Estimates of Average Fluxes and Time Variability'
+  star_mags = np.zeros(N_stars)
+  for ii in range(0,N_stars):
+    star_mags[ii] = np.median(star_mag_matrix[ii,:][star_mask_matrix[ii,:]])
+    #star_mags[ii] = np.mean(star_mag_matrix[ii,:][star_mask_matrix[ii,:]])
+
+  time_var = np.zeros(star_mag_matrix.shape[1])
+  for jj in range(0, star_mag_matrix.shape[1]):
+    res = star_mag_matrix[:,jj] - star_mags[:]
+    time_var[jj] = np.median(res[star_mask_matrix[:,jj]])
+    #time_var[jj] = np.mean(res[star_mask_matrix[:,jj]])
+
+  print '\n\tCheck Magnitudes and Time Series were all Estimates'
+  print '\t\tnp.sum(star_mags==0.)',np.sum(star_mags==0.)
+  print '\t\tnp.sum(time_var==0.)',np.sum(time_var==0.)
+
+  '''
+  num_image_contributions_by_star = np.sum(star_mask_matrix, axis=1)
+  star_cut = num_image_contributions_by_star > 600
+  star_index = star_index[np.where(star_cut)]
+  N_stars = np.sum(star_cut)
+  print '\tNum. Images Where a star contributes > 600 Times:', N_stars
+  print '\tReshape Star Data Matrix from', star_mag_matrix.shape, 'to', star_mag_matrix[star_cut,:].shape
+  star_mag_matrix     = star_mag_matrix[star_cut,:]
+  star_mag_err_matrix = star_mag_err_matrix[star_cut,:]
+  star_mask_matrix    = star_mask_matrix[star_cut,:]
+  '''
+
+  ########################################################################################
+
+  # No point in plotting as a function of time.
+  '''
+  cols = cm.plasma(np.linspace(0, 1, N_stars))
+  figure()
+  ax = subplot(311)
+  for k in range(0,len(star_mags)):
+    plot(times, np.ma.masked_where(star_mask_matrix, star_mag_matrix)[k,:], '.', color=cols[k])
+  y1,y2 = ax.get_ylim()
+  ylim(y2,y1)
+  ax1 = subplot(312)
+  for k in range(0,len(star_mags)):
+    plot(times, time_var + star_mags[k], '.', color=cols[k])
+  y1,y2 = ax1.get_ylim()
+  ylim(y2,y1)
+  ax2 = subplot(313)
+  for k in range(0,len(star_mags)):
+    plot(times, time_var, 'k.')
+  y1,y2 = ax2.get_ylim()
+  ylim(y2,y1)
+  '''
+
+  ########################################################################################
+  # Plot Instrument Magnitudes w/o and w/ time variable corrections.
+  cols = cm.plasma(np.linspace(0, 1, N_stars))
+  figure(figsize=(10,12))
+  sorted_k = np.argsort(star_mags)
+  cc=0
+  for k in sorted_k: # loop through stars in order of brightness
+    cut = star_mask_matrix[k,:]
+
+    ax1=subplot(211)
+    errorbar(image_num[cut], star_mag_matrix[k,:][cut] , star_mag_err_matrix[k,:][cut], fmt=',', color=cols[cc])
+
+    ax2=subplot(212)
+    errorbar(image_num[cut], star_mag_matrix[k,:][cut] - time_var[cut] , star_mag_err_matrix[k,:][cut], fmt=',', color=cols[cc])
+    cc+=1
+
+    med = np.median(star_mag_matrix[k,:][cut] - time_var[cut])
+    MAD = 1.4826*np.median(np.abs(star_mag_matrix[k,:][cut] - time_var[cut]-med))
+    outlier_cut =  np.abs(star_mag_matrix[k,:] - time_var -med )/MAD > 2.
+    print '\t\t%d\t%1.2f\t%1.2f\t%1.2f\t%d'%(k, med,MAD, np.max(np.abs(star_mag_matrix[k,:][cut] - time_var[cut] -med ))/MAD, np.sum(outlier_cut))
+    #print 'outlier_cut.shape', outlier_cut.shape
+    star_mask_matrix[k,outlier_cut] = False
+
+  ax1=subplot(211)
+  y1,y2 = ax1.get_ylim()
+  ylim(y2,y1)
+  xlabel('Image Index')
+  ylabel('Instrument Mag')
+  title('Initial Time-Variable Photometric Corrections')
+  grid(True)
+  ax2=subplot(212)
+  grid(True)
+  y1,y2 = ax2.get_ylim()
+  ylim(y2,y1)
+  xlabel('Image Index')
+  ylabel('Time-Variability Corrected\nInstrument Mag')
+  subplots_adjust(left=0.125)
+
+  ########################################################################################
+
+  print '\n\tRe-Evaluating Initial Estimates After Outlier Cuts'
+  star_mags = np.zeros(N_stars)
+  for ii in range(0,N_stars):
+    star_mags[ii] = np.median(star_mag_matrix[ii,:][star_mask_matrix[ii,:]])
+    #star_mags[ii] = np.mean(star_mag_matrix[ii,:][star_mask_matrix[ii,:]])
+
+  time_var = np.zeros(star_mag_matrix.shape[1])
+  for jj in range(0, star_mag_matrix.shape[1]):
+    res = star_mag_matrix[:,jj] - star_mags[:]
+    time_var[jj] = np.median(res[star_mask_matrix[:,jj]])
+    #time_var[jj] = np.mean(res[star_mask_matrix[:,jj]])
+
+  print '\n\tCheck Magnitudes and Time Series were all Estimates'
+  print '\t\tnp.sum(star_mags==0.)',np.sum(star_mags==0.)
+  print '\t\tnp.sum(time_var==0.)',np.sum(time_var==0.)
+
+  ########################################################################################
+  # REMOVE TIME POINTS WHERE NO STARS PARTICIPATE
+
+  time_cut = time_var!=0.
+  print '\n\tReshape Star Data Matrix from', star_mag_matrix.shape, 'to', star_mag_matrix[:,time_cut].shape
+
+  time_index = np.where(time_cut)[0]
+  star_mag_matrix     = star_mag_matrix[:,time_cut]
+  star_mag_err_matrix = star_mag_err_matrix[:,time_cut]
+  star_mask_matrix    = star_mask_matrix[:,time_cut]
+  time_var            = time_var[time_cut]
+  times               = times[time_cut]
+  image_num           = image_num[time_cut]
+
+  ########################################################################################
+
+  print '\n\tRe-making Initial Estimates of Average Fluxes and Time Variability'
+  star_mags = np.zeros(N_stars)
+  for ii in range(0,N_stars):
+    star_mags[ii] = np.median(star_mag_matrix[ii,:][star_mask_matrix[ii,:]])
+    #star_mags[ii] = np.mean(star_mag_matrix[ii,:][star_mask_matrix[ii,:]])
+
+  time_var = np.zeros(star_mag_matrix.shape[1])
+  for jj in range(0, star_mag_matrix.shape[1]):
+    res = star_mag_matrix[:,jj] - star_mags[:]
+    time_var[jj] = np.median(res[star_mask_matrix[:,jj]])
+    #time_var[jj] = np.mean(res[star_mask_matrix[:,jj]])
+
+  print '\n\tCheck Magnitudes and Time Series were all Estimates'
+  print '\t\tnp.sum(star_mags==0.)',np.sum(star_mags==0.)
+  print '\t\tnp.sum(time_var==0.)',np.sum(time_var==0.)
+
+
+  ########################################################################################
+
+  num_image_contributions_by_star = np.sum(star_mask_matrix, axis=1)
+  print 'sorted(num_image_contributions_by_star)',sorted(num_image_contributions_by_star)
+
+  ########################################################################################
+  # Plot Instrument Magnitudes w/o and w/ time variable corrections after outlier removal.
+
+  cols = cm.plasma(np.linspace(0, 1, N_stars))
+  figure(figsize=(10,12))
+  sorted_k = np.argsort(star_mags)
+  cc=0
+  for k in sorted_k: # loop through stars in order of brightness
+    cut = star_mask_matrix[k,:]
+
+    ax1=subplot(211)
+    errorbar(image_num[cut], star_mag_matrix[k,:][cut] , star_mag_err_matrix[k,:][cut], fmt=',', color=cols[cc])
+
+    ax2=subplot(212)
+    errorbar(image_num[cut], star_mag_matrix[k,:][cut] - time_var[cut] , star_mag_err_matrix[k,:][cut], fmt=',', color=cols[cc])
+    cc+=1
+
+    med = np.median(star_mag_matrix[k,:][cut] - time_var[cut])
+    MAD = 1.4826*np.median(np.abs(star_mag_matrix[k,:][cut] - time_var[cut]-med))
+    #outlier_cut =  np.abs(star_mag_matrix[k,:] - time_var -med )/MAD > 2.
+    print '\t\t%d\t%1.2f\t%1.2f\t%1.2f'%(k, med,MAD, np.max(np.abs(star_mag_matrix[k,:][cut] - time_var[cut] -med ))/MAD)
+    #print 'outlier_cut.shape', outlier_cut.shape
+    #star_mask_matrix[k,outlier_cut] = False
+
+  ax1=subplot(211)
+  y1,y2 = ax1.get_ylim()
+  ylim(y2,y1)
+  xlabel('Image Index')
+  ylabel('Instrument Mag')
+  title('Initial Time-Variable Photometric Corrections')
+  grid(True)
+  ax2=subplot(212)
+  grid(True)
+  y1,y2 = ax2.get_ylim()
+  ylim(y2,y1)
+  xlabel('Image Index')
+  ylabel('Time-Variability Corrected\nInstrument Mag')
+  subplots_adjust(left=0.15)
+
+
+  ######################################################################################## 
+  '''
+
+  print '\n\tCompare results to SDSS Magnitudes '
+  global_ZP = np.median(np.array(star_table['SDSS_r'])[star_index]-star_mags[:N_stars])
+  global_ZP_MAD = 1.4826*np.median(np.abs(np.array(star_table['SDSS_r'])[star_index]-star_mags[:N_stars] - global_ZP)) 
+  print '\t\tEstimated global_ZP %1.2f +/- %1.2f'%(global_ZP, global_ZP_MAD)
+  sorted_k = np.argsort(star_mags[:N_stars])
+  print '\t\tStar\tm_I\tm_SDSS\tDiff\tglobal_ZP Res'
+  for k in sorted_k:
+    print '\t\t%d\t%1.2f\t%1.2f\t%1.2f\t%+1.2f'%( k, star_mags[k], np.array(star_table['SDSS_r'])[star_index[k]], np.array(star_table['SDSS_r'])[star_index[k]] - star_mags[k], np.array(star_table['SDSS_r'])[star_index[k]] - star_mags[k]-global_ZP)
+
+  ######################################################################################## 
+  print '\n\tCut Star With Deviations Greater than 3 times the SDSS Flux Error'
+  ZP_dev = np.array(star_table['SDSS_r'])[star_index] - star_mags - global_ZP
+  flux_err = np.array(star_table['FLUXERR_AUTO_1'])[star_index]/np.array(star_table['FLUX_AUTO_1'])[star_index]
+  cal_cut = np.abs( ZP_dev / flux_err ) < 5.0
+  #print 'cal_cut', cal_cut
+  star_index = star_index[np.where(cal_cut)]
+  #print 'star_index', star_index
+  print '\t\tnp.sum(cal_cut)', np.sum(cal_cut)
+  
+  N_stars = np.sum(cal_cut)
+  #print '\t\tstar_mag_matrix.shape, cal_cut.shape ',star_mag_matrix.shape, cal_cut.shape 
+  print '\t\tstar_mag_matrix[cal_cut,:].shape, cal_cut.shape', star_mag_matrix[cal_cut,:].shape, cal_cut.shape 
+  star_mag_matrix     = star_mag_matrix[cal_cut,:]
+  star_mag_err_matrix = star_mag_err_matrix[cal_cut,:]
+  star_mask_matrix    = star_mask_matrix[cal_cut,:]
+  star_mags           = star_mags[cal_cut]
+
+  ######################################################################################## 
+
+  print '\n\tCompare results to SDSS Magnitudes '
+  global_ZP = np.median(np.array(star_table['SDSS_r'])[star_index]-star_mags[:N_stars])
+  global_ZP_MAD = 1.4826*np.median(np.abs(np.array(star_table['SDSS_r'])[star_index]-star_mags[:N_stars] - global_ZP)) 
+  print '\t\tEstimated global_ZP %1.2f +/- %1.2f'%(global_ZP, global_ZP_MAD)
+  sorted_k = np.argsort(star_mags[:N_stars])
+  print '\t\tStar\tm_I\tm_SDSS\tDiff\tglobal_ZP Res'
+  for k in sorted_k:
+    print '\t\t%d\t%1.2f\t%1.2f\t%1.2f\t%+1.2f'%( k, star_mags[k], np.array(star_table['SDSS_r'])[star_index[k]], np.array(star_table['SDSS_r'])[star_index[k]] - star_mags[k], np.array(star_table['SDSS_r'])[star_index[k]] - star_mags[k]-global_ZP)
+  '''
+  ######################################################################################## 
+  print '\n\tBegin Fit'
+
+  from scipy.optimize import curve_fit
+  print '\t\tlen(star_mags), len(time_var)', len(star_mags), len(time_var)
+  p0 = np.concatenate([star_mags, time_var])
+  print '\t\tp0.shape', p0.shape
+
+  ref_mag = p0[0]
+  p0 -= ref_mag
+  #print len(p0), len(star_mag_matrix[star_mask_matrix])
+
   # create a function to fit to 
   # this is meant to fit an array of time series to a set of means plus one time-varying component
   def func((i2d,t2d), *parms):
@@ -460,239 +743,8 @@ def flux_corrected_curves(fnm_list, t0=57008.):
       #print parms
       return func((i2d,t2d), *parms)
 
-  # get an initial guess at the parameters
-  #star_mags = np.mean(np.ma.masked_where(star_mask_matrix, star_mag_matrix), axis=1)
-  #time_var  = np.mean( (np.ma.masked_where(star_mask_matrix, star_mag_matrix).transpose() -star_mags).transpose(), axis=0 )
-
-  star_mags = np.zeros(N_stars)
-  for ii in range(0,N_stars):
-    sum1 = 0.
-    count1 = 0.
-    for jj in range(0, star_mag_matrix.shape[1]):
-        if(star_mask_matrix[ii,jj]):
-            sum1 += star_mag_matrix[ii][jj]
-            count1 += 1
-    star_mags[ii] = sum1/count1
-
-  time_var = np.zeros(star_mag_matrix.shape[1])
-  for jj in range(0, star_mag_matrix.shape[1]):
-    sum1 = 0.
-    count1 = 0.
-    for ii in range(0,N_stars):
-        if(star_mask_matrix[ii,jj]):
-            sum1 += star_mag_matrix[ii][jj] - star_mags[ii]
-            count1 += 1
-    if(count1>0):
-      time_var[jj] = sum1/count1
-  print 'np.sum(time_var==0.)',np.sum(time_var==0.)
- 
-
-  # REMOVE TIME POINTS WHERE NO STARS PARTICIPATE
-
-  time_cut = time_var!=0.
-  time_index = np.where(time_cut)[0]
-  star_mag_matrix     = star_mag_matrix[:,time_cut]
-  star_mag_err_matrix = star_mag_err_matrix[:,time_cut]
-  star_mask_matrix    = star_mask_matrix[:,time_cut]
-  time_var            = time_var[time_cut]
-  times               = times[time_cut]
-  image_num           = image_num[time_cut]
-
-
-  num_image_contributions_by_star = np.sum(star_mask_matrix, axis=1)
-  star_cut = num_image_contributions_by_star > 600
-  star_index = star_index[np.where(star_cut)]
-  print 'star_index', star_index
-  print 'np.sum(star_cut)', np.sum(star_cut)
-  
-  N_stars = np.sum(star_cut)
-  print star_mag_matrix.shape, star_cut.shape 
-  print star_mag_matrix[star_cut,:].shape, star_cut.shape 
-  star_mag_matrix     = star_mag_matrix[star_cut,:]
-  star_mag_err_matrix = star_mag_err_matrix[star_cut,:]
-  star_mask_matrix    = star_mask_matrix[star_cut,:]
-
-  print 'star_mags', star_mags.shape, star_mags
-  print 'time_var',  time_var.shape, time_var
-  #cols = cm.rainbow(np.linspace(0, 1, N_stars))
-  cols = cm.plasma(np.linspace(0, 1, N_stars))
-  sorted_indices = np.argsort(star_mags)
-  figure()
-  ax = subplot(311)
-  for k in range(0,len(star_mags)):
-    plot(times, np.ma.masked_where(star_mask_matrix, star_mag_matrix)[k,:], '.', color=cols[k])
-  y1,y2 = ax.get_ylim()
-  ylim(y2,y1)
-  ax1 = subplot(312)
-  for k in range(0,len(star_mags)):
-    plot(times, time_var + star_mags[k], '.', color=cols[k])
-  y1,y2 = ax1.get_ylim()
-  ylim(y2,y1)
-  ax2 = subplot(313)
-  for k in range(0,len(star_mags)):
-    plot(times, time_var, 'k.')
-  y1,y2 = ax2.get_ylim()
-  ylim(y2,y1)
-
-  figure()
-  ax=subplot(111)
-  #ax.set_yscale('log')
-  sorted_k = np.argsort(star_mags)
-  #for k in range(0,N_stars):
-  cc=0
-  for k in sorted_k:
-    #cut = star_mag_matrix[k,:]>0.
-    cut = star_mask_matrix[k,:]
-    #print k, times.shape, star_mag_matrix[k,:].shape 
-    #plot(times[cut], star_mag_matrix[k,:][cut], '.-')
-    #errorbar(times[cut], star_mag_matrix[k,:][cut], star_mag_err_matrix[k,:][cut], fmt='.')
-    #errorbar(times[cut], star_mag_matrix[k,:][cut] - fit_time_var[cut] , star_mag_err_matrix[k,:][cut], fmt='.')
-    errorbar(image_num[cut], star_mag_matrix[k,:][cut] - time_var[cut] , star_mag_err_matrix[k,:][cut], fmt='.', color=cols[cc])
-    cc+=1
-    med = np.median(star_mag_matrix[k,:][cut] - time_var[cut])
-    MAD = 1.4826*np.median(np.abs(star_mag_matrix[k,:][cut] - time_var[cut]-med))
-    print '%1.2f %1.2f %1.2f'%(med,MAD, np.max(np.abs(star_mag_matrix[k,:][cut] - time_var[cut] -med ))/MAD)
-    outlier_cut =  np.abs(star_mag_matrix[k,:] - time_var -med )/MAD > 2.
-    print 'outlier_cut.shape', outlier_cut.shape
-    star_mask_matrix[k,outlier_cut] = False
-
-  y1,y2 = ax.get_ylim()
-  ylim(y2,y1)
-
-  star_mags = np.zeros(N_stars)
-  for ii in range(0,N_stars):
-    sum1 = 0.
-    count1 = 0.
-    for jj in range(0, star_mag_matrix.shape[1]):
-        if(star_mask_matrix[ii,jj]):
-            sum1 += star_mag_matrix[ii][jj]
-            count1 += 1
-    star_mags[ii] = sum1/count1
-
-  time_var = np.zeros(star_mag_matrix.shape[1])
-  for jj in range(0, star_mag_matrix.shape[1]):
-    sum1 = 0.
-    count1 = 0.
-    for ii in range(0,N_stars):
-        if(star_mask_matrix[ii,jj]):
-            sum1 += star_mag_matrix[ii][jj] - star_mags[ii]
-            count1 += 1
-    if(count1>0):
-      time_var[jj] = sum1/count1
-  print 'np.sum(time_var==0.)',np.sum(time_var==0.)
- 
-  # REMOVE TIME POINTS WHERE NO STARS PARTICIPATE
-
-  time_cut = time_var!=0.
-  time_index = np.where(time_cut)[0]
-  star_mag_matrix     = star_mag_matrix[:,time_cut]
-  star_mag_err_matrix = star_mag_err_matrix[:,time_cut]
-  star_mask_matrix    = star_mask_matrix[:,time_cut]
-  time_var            = time_var[time_cut]
-  times               = times[time_cut]
-  image_num           = image_num[time_cut]
-
-  num_image_contributions_by_star = np.sum(star_mask_matrix, axis=1)
-
-  fnm_list = np.array(fnm_list)
-  #print 'time_index', time_index
-  #print 'time_index.shape', time_index.shape
-  #print 'image_num.shape', image_num.shape
-  #print 'fnm_list[time_index]', fnm_list[time_index]
-  #print 'len(fnm_list[time_index])', len(fnm_list[time_index])
-  #exit()
-  '''
-  star_cut = num_image_contributions_by_star > 600
-  star_index = np.where(star_cut)
-  print 'star_index', star_index
-  print 'np.sum(star_cut)', np.sum(star_cut)
-  
-  N_stars = np.sum(star_cut)
-  print star_mag_matrix.shape, star_cut.shape 
-  print star_mag_matrix[star_cut,:].shape, star_cut.shape 
-  star_mag_matrix     = star_mag_matrix[star_cut,:]
-  star_mag_err_matrix = star_mag_err_matrix[star_cut,:]
-  star_mask_matrix    = star_mask_matrix[star_cut,:]
-  '''
-
-  figure()
-  ax=subplot(111)
-  #ax.set_yscale('log')
-  sorted_k = np.argsort(star_mags)
-  #for k in range(0,N_stars):
-  cc=0
-  for k in sorted_k:
-    print 'num_image_contributions_by_star[k]', num_image_contributions_by_star[k]
-    #cut = star_mag_matrix[k,:]>0.
-    cut = star_mask_matrix[k,:]
-    #print k, times.shape, star_mag_matrix[k,:].shape 
-    #plot(times[cut], star_mag_matrix[k,:][cut], '.-')
-    #errorbar(times[cut], star_mag_matrix[k,:][cut], star_mag_err_matrix[k,:][cut], fmt='.')
-    #errorbar(times[cut], star_mag_matrix[k,:][cut] - fit_time_var[cut] , star_mag_err_matrix[k,:][cut], fmt='.')
-    errorbar(image_num[cut], star_mag_matrix[k,:][cut] - time_var[cut] , star_mag_err_matrix[k,:][cut], fmt='.', color=cols[cc])
-    cc+=1
-    med = np.median(star_mag_matrix[k,:][cut] - time_var[cut])
-    MAD = 1.4826*np.median(np.abs(star_mag_matrix[k,:][cut] - time_var[cut]-med))
-    print '%1.2f %1.2f %1.2f'%(med,MAD, np.max(np.abs(star_mag_matrix[k,:][cut] - time_var[cut] -med ))/MAD)
-    outlier_cut =  np.abs(star_mag_matrix[k,:] - time_var -med )/MAD > 2.
-    print 'outlier_cut.shape', outlier_cut.shape
-    star_mask_matrix[k,outlier_cut] = False
-
-  y1,y2 = ax.get_ylim()
-  ylim(y2,y1)
-
-  print 'star_index', star_index
-  print 'star_index[0]', star_index[0]
-  print 'star_table[\'SDSS_r\'][star_index[0]]\n', np.array(star_table['SDSS_r'])[star_index[0]]
-  #global_ZP = np.array(star_table['SDSS_r'])[star_index[0]]-ref_mag
-  global_ZP = np.median(np.array(star_table['SDSS_r'])[star_index]-star_mags[:N_stars])
-  print 'global_ZP', global_ZP
-  sorted_k = np.argsort(star_mags[:N_stars])
-
-  for k in sorted_k:
-    print 'ZPs\t%d\t%1.2f\t%1.2f\t%1.2f\t%+1.2f'%( k, star_mags[k], np.array(star_table['SDSS_r'])[star_index[k]], np.array(star_table['SDSS_r'])[star_index[k]] - star_mags[k], np.array(star_table['SDSS_r'])[star_index[k]] - star_mags[k]-global_ZP)
-
-  print '=============================='
-
-  cal_cut = np.abs( np.array(star_table['SDSS_r'])[star_index] - star_mags - global_ZP ) < 0.2
-  print 'cal_cut', cal_cut
-  star_index = star_index[np.where(cal_cut)]
-  print 'star_index', star_index
-  print 'np.sum(cal_cut)', np.sum(cal_cut)
-  
-  N_stars = np.sum(cal_cut)
-  print 'star_mag_matrix.shape, cal_cut.shape ',star_mag_matrix.shape, cal_cut.shape 
-  print 'star_mag_matrix[cal_cut,:].shape, cal_cut.shape', star_mag_matrix[cal_cut,:].shape, cal_cut.shape 
-  star_mag_matrix     = star_mag_matrix[cal_cut,:]
-  star_mag_err_matrix = star_mag_err_matrix[cal_cut,:]
-  star_mask_matrix    = star_mask_matrix[cal_cut,:]
-  star_mags           = star_mags[cal_cut]
-
-  print 'star_index', star_index
-  #global_ZP = np.array(star_table['SDSS_r'])[star_index[0]]-ref_mag
-  global_ZP = np.median(np.array(star_table['SDSS_r'])[star_index]-star_mags[:N_stars])
-  print 'global_ZP', global_ZP
-  sorted_k = np.argsort(star_mags[:N_stars])
-
-  for k in sorted_k:
-    print 'ZPs\t%d\t%1.2f\t%1.2f\t%1.2f\t%+1.2f'%( k, star_mags[k], np.array(star_table['SDSS_r'])[star_index[k]], np.array(star_table['SDSS_r'])[star_index[k]] - star_mags[k], np.array(star_table['SDSS_r'])[star_index[k]] - star_mags[k]-global_ZP)
-
-
-  #show()
-  from scipy.optimize import curve_fit
-  print 'len(star_mags), len(time_var)', len(star_mags), len(time_var)
-  p0 = np.concatenate([star_mags, time_var])
-  print 'p0.shape', p0.shape
-
-  # set reference
-  # set up the data for the fit
-
-  ref_mag = p0[0]
-  p0 -= ref_mag
-  print len(p0), len(star_mag_matrix[star_mask_matrix])
-
-
   print 'START CURVE_FIT'
+
   I2d, T2d = np.indices(star_mag_matrix.shape)
   popt, pcov = curve_fit(func_fixed_ref, 
                         (I2d[star_mask_matrix], T2d[star_mask_matrix]), 
@@ -704,90 +756,87 @@ def flux_corrected_curves(fnm_list, t0=57008.):
                         method = 'trf',
                         absolute_sigma=True)
 
-  # put reference back in the array
-  print 'popt', popt
-  #show()
-  #ref_mag = np.average(np.ma.masked_where(star_mask_matrix, star_mag_matrix)[0,:], weights = np.ma.masked_where(star_mask_matrix, 1./star_mag_err_matrix)[0,:])
-  #print 'ref_mag.shape', ref_mag.shape
-  #exit()
-  '''
-  ref_mag=0.
-  sum1 = 0.
-  sum2 = 0.
-  #count1 = 0.
-  for jj in range(0, star_mag_matrix.shape[1]):
-    if(star_mask_matrix[0,jj]):
-        sum1 += star_mag_matrix[0,jj]/star_mag_err_matrix[0,jj]**2
-        sum2 += 1/star_mag_err_matrix[0,jj]**2
-        #count1 += 1
-  ref_mag = sum1/sum2
-  print 'sum1, sum2, ref_mag', sum1, sum2, ref_mag
-
-  ref_mag = p0[0]
-  '''
   #exit()
   popt = np.concatenate([[0.], popt])
   perr = np.concatenate([[0.],np.sqrt(np.diag(pcov))])
 
   popt[:N_stars] += ref_mag
   popt[N_stars:] -= ref_mag
-  print 'popt', popt
-  print 'np.diag(pcov)', perr
+  #print '\t\tpopt', popt
+  #print '\t\tnp.diag(pcov)', perr
 
-  figure()
-  ax = subplot(111)
-  #print star_mag_err_matrix[star_mask_matrix]
-  print 'popt.shape',popt.shape 
-  print 'pcov.shape',perr.shape 
-  #exit()
+  print '\tpopt.shape',popt.shape 
+  print '\tpcov.shape',perr.shape 
+
   fit_mag          = popt[:N_stars]
   fit_time_var     = popt[N_stars:]
   fit_mag_err      = perr[:N_stars]
   fit_time_var_err = perr[N_stars:]
-  for k in range(0,N_stars):
-    #print fit_mag_err[k] + fit_time_var_err
-    errorbar(times, fit_mag[k] + fit_time_var, yerr=np.sqrt(fit_mag_err[k]**2 + fit_time_var_err**2), fmt='.')
-    #plot(times, fit_mag[k] + fit_time_var, '.')
-  print 'fit_mag[k] + fit_time_var', fit_mag[k] + fit_time_var
-  y1,y2 = ax.get_ylim()
-  ylim(y2,y1)
-  title('Best Fit Model of the Data')
-  #show()
-  figure()
+
+  fnm_list = np.array(fnm_list)
+  np.savez('phot_cal.npz', time_index = time_index,
+                           star_index = star_index,
+                           image_num  = image_num,
+                           fnm_list  = fnm_list[time_index],
+                           fit_time_var = fit_time_var,
+                           fit_time_var_err = fit_time_var_err,
+                           fit_mag = fit_mag,
+                           fit_mag_err = fit_mag_err,
+                           #global_ZP = global_ZP,
+                           star_mag_matrix = star_mag_matrix,
+                           star_mag_err_matrix = star_mag_err_matrix,
+                           star_mask_matrix = star_mask_matrix
+                           )
+  ######################################################################################## 
+
+  figure(figsize=(10,12))
   ax=subplot(211)
   errorbar(image_num, fit_time_var, yerr=fit_time_var_err, fmt='.')
-  ylabel('Instrument Magnitude, mag')
+  ylabel('Time-Variable Magnitude Correction, mag')
   grid(True)
   y1,y2 = ax.get_ylim()
   ylim(y2,y1)
   title('Best Fit Time Variability')
   subplot(212)
   semilogy(image_num, fit_time_var_err, '.')
-  xlabel('time, days')
+  xlabel('Image Index')
   grid(True, which='both')
   ylabel('Uncertainty, mag')
-  print times.shape
-  print star_mag_matrix.shape
-  print star_mag_err_matrix.shape
+  print '\ttimes.shape',times.shape
+  print '\tstar_mag_matrix.shape',star_mag_matrix.shape
+  print '\tstar_mag_err_matrix.shape',star_mag_err_matrix.shape
 
-  figure()
+  figure(figsize=(10,8))
   ax=subplot(111)
-  #ax.set_yscale('log')
   sorted_k = np.argsort(fit_mag)
-  #for k in range(0,N_stars):
   cc=0
-  #for k in range(0, len(fit_mag)):
   for k in sorted_k:
-    #cut = star_mag_matrix[k,:]>0.
     cut = star_mask_matrix[k,:]
-    print k, times.shape, star_mag_matrix[k,:].shape 
-    #plot(times[cut], star_mag_matrix[k,:][cut], '.-')
-    #errorbar(times[cut], star_mag_matrix[k,:][cut], star_mag_err_matrix[k,:][cut], fmt='.')
-    #errorbar(times[cut], star_mag_matrix[k,:][cut] - fit_time_var[cut] , star_mag_err_matrix[k,:][cut], fmt='.')
     errorbar(image_num[cut], star_mag_matrix[k,:][cut] - fit_time_var[cut] , star_mag_err_matrix[k,:][cut], fmt='.', color=cols[cc])
     cc+=1
   y1,y2 = ax.get_ylim()
   ylim(y2,y1)
+  xlabel('Image Index')
+  ylabel('Time Variability Corrected\nInstrument Magnitude')
+  subplots_adjust(left=0.15)
+  title('Fitted Variability Corrections')
+  grid(True)
+
+  '''
+  print '\n\tCompare results to SDSS Magnitudes '
+  global_ZP = np.median(np.array(star_table['SDSS_r'])[star_index]-fit_mag[:N_stars])
+  global_ZP_MAD = 1.4826*np.median(np.abs(np.array(star_table['SDSS_r'])[star_index]-fit_mag[:N_stars] - global_ZP)) 
+  print '\t\tEstimated global_ZP %1.2f +/- %1.2f'%(global_ZP, global_ZP_MAD)
+  sorted_k = np.argsort(fit_mag[:N_stars])
+  print '\t\tStar\tm_I\tm_SDSS\tDiff\tglobal_ZP Res\terr'
+  for k in sorted_k:
+    cut = star_mask_matrix[k,:]
+    star_ZP = np.array(star_table['SDSS_r'])[star_index[k]] - fit_mag[k]
+    res  =  star_ZP-global_ZP
+    bias = np.median(star_mag_matrix[k,:][cut] - fit_time_var[cut] + global_ZP - np.array(star_table['SDSS_r'][star_index[k]]))
+    err = 1.4826*np.median(np.abs(star_mag_matrix[k,:][cut] - fit_time_var[cut] + global_ZP - np.array(star_table['SDSS_r'][star_index[k]]) - bias))
+    print '\t\t%d\t%1.2f\t%1.2f\t%1.2f\t%+1.3f\t\t%+1.3f\t%+1.3f'%( k, fit_mag[k], np.array(star_table['SDSS_r'])[star_index[k]], star_ZP, res, err, np.array(star_table['SDSS_g-r'])[star_index[k]])
+    #print '\t\t%d\t%1.2f\t%1.2f\t%1.2f\t%+1.4f\t%1.5f\t%1.5f'%( k, fit_mag[k], np.array(star_table['SDSS_r'])[star_index[k]], star_ZP, res,  bias, err)
 
 
   figure()
@@ -800,7 +849,7 @@ def flux_corrected_curves(fnm_list, t0=57008.):
   for k in sorted_k:
     #cut = star_mag_matrix[k,:]>0.
     cut = star_mask_matrix[k,:]
-    print k, times.shape, star_mag_matrix[k,:].shape 
+    #print k, times.shape, star_mag_matrix[k,:].shape 
     #plot(times[cut], star_mag_matrix[k,:][cut], '.-')
     #errorbar(times[cut], star_mag_matrix[k,:][cut], star_mag_err_matrix[k,:][cut], fmt='.')
     #errorbar(times[cut], star_mag_matrix[k,:][cut] - fit_time_var[cut] , star_mag_err_matrix[k,:][cut], fmt='.')
@@ -809,51 +858,9 @@ def flux_corrected_curves(fnm_list, t0=57008.):
     cc+=1
   y1,y2 = ax.get_ylim()
   ylim(y2,y1)
-
+  ylabel('Calibrated Fluxes, mag')
+  xlabel('Image Index')
   '''
-  figure()
-  #ax.set_yscale('log')
-  ax0=subplot(N_stars,1,1)
-  for k in range(0,N_stars):
-    #cut = star_mag_matrix[k,:]>0.
-    cut = star_mask_matrix[k,:]
-    print k, times.shape, star_mag_matrix[k,:].shape 
-    #plot(times[cut], star_mag_matrix[k,:][cut], '.-')
-    errorbar(times[cut], star_mag_matrix[k,:][cut] - fit_time_var[cut] - fit_mag[k], star_mag_err_matrix[k,:][cut], fmt='.')
-    #y1,y2 = ax.get_ylim()
-    ylim(0.2,-0.2)
-    grid(True)
-    if(k<5):
-     ax=subplot(N_stars,1,k+2, sharex=ax0, sharey=ax0)
-
-  bins = np.arange(0., 400. + 3./24., 3./24.)
-  figure()
-  #ax.set_yscale('log')
-  ax0=subplot(N_stars,1,1)
-  for k in range(0,N_stars):
-    #cut = star_mag_matrix[k,:]>0.
-    cut = star_mask_matrix[k,:]
-    print k, times.shape, star_mag_matrix[k,:].shape 
-    #plot(times[cut], star_mag_matrix[k,:][cut], '.-')
-    binned_t, m, e = binned_light_curve(times[cut], star_mag_matrix[k,:][cut] - fit_time_var[cut] - fit_mag[k], star_mag_err_matrix[k,:][cut], bins)
-    errorbar(binned_t, m , e, fmt='.')
-    #y1,y2 = ax.get_ylim()
-    ylim(0.2,-0.2)
-    grid(True)
-    if(k<5):
-     ax=subplot(N_stars,1,k+2, sharex=ax0, sharey=ax0)
-  '''
-  
-  np.savez('phot_cal.npz', time_index = time_index,
-                           star_index = star_index,
-                           fnm_list  = fnm_list[time_index],
-                           fit_time_var = fit_time_var,
-                           fit_time_var_err = fit_time_var_err,
-                           fit_mag = fit_mag,
-                           fit_mag_err = fit_mag_err,
-                           global_ZP = global_ZP
-                           )
-
   return popt[N_stars:], perr[N_stars:]
 #Star_chi_max_cut = 4.5
 #Star_chi_sq_cut = 1.15
@@ -941,7 +948,6 @@ def flux_corrected_qsr_curves(fnm_list, rel_phot, rel_phot_err, kind='wg', t0=57
   #grid(True)
   #y1, y2 = ax5.get_ylim()
   #ylim(y2,y1)
-
 
   img_1_rel_mean = np.average(img_1-rel_phot, weights = 1./(img_1_err**2+rel_phot_err**2))
   img_2_rel_mean = np.average(img_2-rel_phot, weights = 1./(img_2_err**2+rel_phot_err**2))
