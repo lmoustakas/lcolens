@@ -1599,7 +1599,7 @@ def starFit(FM, ra_star_list, dec_star_list,  beta, shapelet_coefficients, readn
 
 
 
-def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, readnoise, beta, shapelet_coeffs, nmax, mmax, N_px, galFit=False, outputFileTag='out', display=0, emcee_level=1):
+def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, readnoise, beta, shapelet_coeffs, nmax, mmax, N_px, galFit=False, gal_S_CCD = None, outputFileTag='out', display=0, emcee_level=1):
   print '\nquadFit'
   # GET THE QUASAR IMAGE
   obj = SourceImage(FM, ra_qsr, dec_qsr, nmax, mmax, N_px)
@@ -1776,12 +1776,15 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, readn
   pL = [-15., -15.,  0.,     0.,     0.,     0.,     0.,   ]
   bounds = [pL,pU]
 
+  amp_lens=0.
+  if(gal_S_CCD != None):
+    amp_lens = gal_S_CCD
   # wrapper to fix the image positions relative to the field position
-  def qmi_ng( (xg,yg, beta, shapelet_coeffs, N_pix, flip,  _x1, _x2, _x3, _x4, _y1, _y2, _y3, _y4), x0, y0, amp0, amp1, amp2, amp3, N_bkg):
-    return obj.quad_image_model((xg,yg, beta, shapelet_coeffs, N_pix, flip), x0, y0, _x1, _x2, _x3, _x4, _y1, _y2, _y3, _y4, amp0, amp1, amp2, amp3, N_bkg)
+  def qmi_ng( (xg,yg, beta, shapelet_coeffs, N_pix, flip,  _x1, _x2, _x3, _x4, _y1, _y2, _y3, _y4, _xlens, _ylens, _amp_lens, _r0_lens, _q_lens, _posang_lens), x0, y0, amp0, amp1, amp2, amp3, N_bkg):
+    return obj.quad_image_model((xg,yg, beta, shapelet_coeffs, N_pix, flip), x0, y0, _x1, _x2, _x3, _x4, _y1, _y2, _y3, _y4, amp0, amp1, amp2, amp3, N_bkg, _xlens, _ylens, _amp_lens, _r0_lens, _q_lens, _posang_lens)
 
   print '\tFitting w/o lensing galaxy'
-  popt_ng, pcov_ng = opt.curve_fit(qmi_ng, (xg, yg, beta, shapelet_coeffs, len(obj.image), fl, x_images[0], x_images[1], x_images[2], x_images[3], y_images[0], y_images[1], y_images[2], y_images[3]), obj.image.ravel(), sigma = sigmas.ravel(), absolute_sigma=True, p0=p0, bounds=bounds)
+  popt_ng, pcov_ng = opt.curve_fit(qmi_ng, (xg, yg, beta, shapelet_coeffs, len(obj.image), fl, x_images[0], x_images[1], x_images[2], x_images[3], y_images[0], y_images[1], y_images[2], y_images[3], x_lens, y_lens, amp_lens, r0_lens, q_lens, posang_lens), obj.image.ravel(), sigma = sigmas.ravel(), absolute_sigma=True, p0=p0, bounds=bounds)
 
 
   print '\tParameters'
@@ -1793,7 +1796,7 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, readn
   print '\t\tamp_3 = %+1.2e +/- %+1.2e'%(popt_ng[5], np.sqrt(pcov_ng[5,5]))
   print '\t\tN_bkg = %+1.2e +/- %+1.2e'%(popt_ng[6], np.sqrt(pcov_ng[6,6]))
   #print popt_ng
-  qim3 = qmi_ng((xg,yg, beta, shapelet_coeffs, len(obj.image), fl, x_images[0], x_images[1], x_images[2], x_images[3], y_images[0], y_images[1], y_images[2], y_images[3]), *popt_ng).reshape(N_px, N_px)
+  qim3 = qmi_ng((xg,yg, beta, shapelet_coeffs, len(obj.image), fl, x_images[0], x_images[1], x_images[2], x_images[3], y_images[0], y_images[1], y_images[2], y_images[3], x_lens, y_lens, amp_lens, r0_lens, q_lens, posang_lens), *popt_ng).reshape(N_px, N_px)
 
   # ESTIMATE ITS DISTRIBUTION OF CHI VALUES
   res = obj.image-qim3
@@ -1833,6 +1836,8 @@ def quadFit(FM, ra_qsr, dec_qsr, ra_images, dec_images, ra_lens, dec_lens, readn
     plt.savefig('%s_quadFit_NG.png'%outputFileTag)
   #'''
   if(galFit==False):
+    print '\tgalFit',galFit
+    print '\tamp_lens',amp_lens
     '''
     amp0_fit  = popt_ng[10]
     amp1_fit  = popt_ng[11]

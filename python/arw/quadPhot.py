@@ -30,6 +30,7 @@ if __name__ == "__main__":
     parser.add_argument("-pf",   "--PSF_file",       default = None,  help="npz file with PSF star fit results",type=str)
     parser.add_argument("-pcsc", "--PSF_chi_sq_cut", default = None,  help="Maximum allowable PSF chi sq. Defined in filedInputs. These entries override that for testing and debugging.",type=float)
     parser.add_argument("-pmcc", "--PSF_max_chi_cut", default = None,  help="Maximum allowable PSF max(abs(chi)). Defined in filedInputs. These entries override that for testing and debugging.",type=float)
+    parser.add_argument("-gf", "--gal_S_CCD", default = None,  help="Lensing galaxy instrument flux. This is obtained after running fitting the ensemble",type=float)
 
 
     #KLUDGE TO GET ARGPARSE TO READ NEGATIVE VALUES
@@ -154,12 +155,42 @@ if __name__ == "__main__":
         print 'normed_parameter S_CCD', S_CCD
         ra_field, dec_field = convertRaAndDec(field_inputs['Field_RA'], field_inputs['Field_Dec'])
         print 'Field RA, DEC', ra_field, dec_field
+        galFit = True
+        if(args.gal_S_CCD != None):
+            galFit = False
         popt_wg, pcov_wg, chisq_wg, max_chi_wg = quadFit(FM, float(ra_field), float(dec_field), 
                                                          np.array(field_inputs['Point_Source_RAs']), np.array(field_inputs['Point_Source_Decs']), 
                                                          float(field_inputs['Lens_Gal_RA']), float(field_inputs['Lens_Gal_Dec']), 
                                                          readnoise, beta, PSF_parms, nmax, mmax, 
-                                                         npxls, galFit=True, display=args.plots,  
+                                                         npxls, galFit=galFit, gal_S_CCD = args.gal_S_CCD, display=args.plots,  
                                                          outputFileTag=args.outputFileTag, emcee_level = 0)
+
+        npz_out = args.outputFileTag + '_Quad_1.npz'
+        parm_list = ['x0', 'y0', 'S_CCD_0', 'S_CCD_1', 'S_CCD_2', 'S_CCD_3', 'N_bkg', 'S_CCD_LensGal']
+        if(args.gal_S_CCD != None):
+            npz_out = args.outputFileTag + '_Quad_2.npz'
+            parm_list = ['x0', 'y0', 'S_CCD_0', 'S_CCD_1', 'S_CCD_2', 'S_CCD_3', 'N_bkg']
+
+        np.savez(npz_out,
+                imageFile       = FM.fits_file_name,
+                outFileTag      = args.outputFileTag,
+                beta            = beta, 
+                beta_unc        = beta_unc, 
+                PSF_parms       = PSF_parms,
+                PSF_parms_unc   = PSF_parms_unc, 
+                num_good_PSF_fit=num_good_PSF_fit,
+                mjd_obs         = float(FM.hdulist[0].header['MJD-OBS']),
+                readnoise       = readnoise,
+                nmax            = nmax,
+                mmax            = mmax,
+                filter          = FM.hdulist[0].header['FILTER'],
+                parm_list       = parm_list,
+                popt_wg         = popt_wg,
+                pcov_wg         = pcov_wg,
+                chi_sq          = chisq_wg, 
+                max_chi         = max_chi_wg,
+        )
+        print 'Quad Image Photometry Complete'
     #########################################################################################
 
     if(args.analysis_level>2):
